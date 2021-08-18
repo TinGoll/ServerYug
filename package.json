@@ -1,7 +1,6 @@
 {
   "name": "server",
   "version": "1.0.0",
-  "description": "",
   "main": "index.js",
   "type": "module",
   "scripts": {
@@ -15,5 +14,14 @@
   },
   "devDependencies": {
     "@types/express": "^4.17.13"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TinGoll/ServerYug.git"
+  },
+  "bugs": {
+    "url": "https://github.com/TinGoll/ServerYug/issues"
+  },
+  "homepage": "https://github.com/TinGoll/ServerYug#readme",
+  "description": ""
 }
