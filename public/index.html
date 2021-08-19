@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Firebird + Node</title>
+</head>
+<body>
+    <h2>Главная Страница</h2>
+
+    <p>Рабочие ссылки:</p>
+    <a href="/packages/">Страница всех заказов на упаковке</a>
+    <br/>
+    <a href="/packages/1528">Пример страницы заказа с номером 1528 (номер может быть динамический)</a>
+
+    <p>
+        <i><b>Структура проекта:</b></i> <br/>
+        <p></p>
+        <b>app/pools</b> - папка с функцииями для pool запросов к базе данных <br/>
+        <b>app/query</b> - папка для sql-запросов к базе данных, используются в pool <br/>
+        <b>config/.firebirdDB</b> - папка содержит настройки подключения к базе данных <br/>
+        <b>config/app.js</b> - файл с настройками API (сейчас содержит только порт подключения) <br/>
+        <b>config/routes*.js</b> - файлы содержат пути для доступа извне к API <br/>
+        <b>public</b> - статичные HTML файлы API <br/>
+    </p>
+</body>
+</html>
