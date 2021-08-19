@@ -15,5 +15,6 @@ app.use(express.static(__dirname + "/public"))
 
 config.express(app);
 config.routesPackages(app);
+config.routesOrders(app);
 
 app.listen(appPort, () => console.log(`Сервер запущен на порту ${appPort}`))
