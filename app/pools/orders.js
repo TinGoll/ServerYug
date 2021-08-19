@@ -14,9 +14,9 @@ const getAllOrders =  (req, res) => {
         if (options.$sort) options.$sort += req.query._order ? ' ' + req.query._order : '';
         let query = ordersQuery.get('get_orders', options);
         pool.get((err, db) => {
-            if (err) return res.status(400).json({error: 'ok', message: 'Ошибка подключения к базе данных.'});
+            if (err) return res.status(400).json({error: 'ok', message: 'РћС€РёР±РєР° РїРѕРґРєР»СЋС‡РµРЅРёСЏ Рє Р±Р°Р·Рµ РґР°РЅРЅС‹С….'});
             db.query(query, (e, result) => {
-                if (e) return res.status(500).json({error: 'ok', message: 'Ошибка выполнения запроса.'});
+                if (e) return res.status(500).json({error: 'ok', message: 'РћС€РёР±РєР° РІС‹РїРѕР»РЅРµРЅРёСЏ Р·Р°РїСЂРѕСЃР°.'});
                 db.detach();
                 let orders = result;
                 let query = ordersQuery.get('get_orders_count', options);
@@ -44,11 +44,11 @@ const getOneOrder =  (req, res) => {
         let query = ordersQuery.get('get_order_header', options);
         let order = {};
         pool.get((err, db) => {
-            if (err) return res.status(400).json({error: 'ok', message: 'Ошибка подключения к базе данных.'});
+            if (err) return res.status(400).json({error: 'ok', message: 'РћС€РёР±РєР° РїРѕРґРєР»СЋС‡РµРЅРёСЏ Рє Р±Р°Р·Рµ РґР°РЅРЅС‹С….'});
             db.query(query, (e, result) => {
-                if (e) return res.status(500).json({error: 'ok', message: 'Ошибка выполнения запроса.'});
+                if (e) return res.status(500).json({error: 'ok', message: 'РћС€РёР±РєР° РІС‹РїРѕР»РЅРµРЅРёСЏ Р·Р°РїСЂРѕСЃР°.'});
                 db.detach();
-                if (!result.length) return res.status(400).json({error: 'ok', message: `Заказ № ${id} не найден.`});
+                if (!result.length) return res.status(400).json({error: 'ok', message: `Р—Р°РєР°Р· в„– ${id} РЅРµ РЅР°Р№РґРµРЅ.`});
                 order.header = result;
                 options = {};
                 options.$where = `ORDER_ID = ${id}`;
