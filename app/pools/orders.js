@@ -2,6 +2,9 @@ const firebird = require('node-firebird')
 const options = require('../../config/.firebirdDB/settingsDB');
 const pool = firebird.pool(5, options);
 const ordersQuery = require('../query/orders');
+const path = require('path');
+
+const __dirn = path.resolve();
 
 const getAllOrders =  (req, res) => {
     try {
@@ -34,6 +37,10 @@ const getAllOrders =  (req, res) => {
     } catch (error) {
         console.log(error);
     }
+}
+
+const getImageTest = (req, res) => {
+    res.sendFile(__dirn + '/app/assets/images/testImage.jpg');
 }
 
 const getOneOrder =  (req, res) => {
@@ -77,5 +84,6 @@ const getOneOrder =  (req, res) => {
 }
 module.exports = {
     getAllOrders,
-    getOneOrder
+    getOneOrder,
+    getImageTest
 }
