@@ -55,6 +55,9 @@ const getOneOrder =  (req, res) => {
                 let query = ordersQuery.get('get_order_body', options);
                 db.query(query, (e, result) => {
                     db.detach();
+                    result.forEach((element, index, arr) => {
+                        if (element.MEASURE_UNIT) element.MEASURE_UNIT = element.MEASURE_UNIT.replace('м2', 'м²')
+                    });
                     order.body = result;
                     options = {};
                     options.$where = `ORDER_ID = ${id}`;

@@ -6,13 +6,19 @@ const data = [
             query: (opt) => {
                 const {$first = '', $skip = '', $where = '', $sort = ''} = opt;
                 q = `select ${$first} ${$skip} distinct 
-                            O.ID, O.ITM_ORDERNUM, O.ORDERNUM, O.ORDER_TYPE, O.MANAGER, C.CLIENTNAME, C.CITY,
-                            C.PRICE_COLUMN, O.FASAD_MAT, O.FASAD_MODEL, O.COLOR, O.ORDER_TOTAL_COST,
-                            O.ORDER_COST, O.ORDER_PAY,
-                            (O.ORDER_TOTAL_COST - coalesce(O.ORDER_PAY, 0)) * -1 as ORDER_DEBT, ORDER_GENERALSQ,
-                            O.FACT_DATE_FIRSTSAVE, O.PLAN_DATE_FIRSTSTAGE, O.PLAN_DATE_PACK,
-                            O.FACT_DATE_ORDER_OUT, LIST_STATUSES.STATUS_DESCRIPTION, LIST_STATUSES.STATUS_NUM,
-                            O.FACT_DATE_FIRSTSAVE, C.IS_PREPAID, O.COLOR_TYPE, O.COLOR_PATINA, O.PRIMECH
+                                O.ID, O.MANAGER, O.CLIENT, O.ORDERNUM, O.ITM_ORDERNUM, O.FASAD_MAT, O.FASAD_MODEL, O.FASAD_PG_WIDTH,
+                                O.TEXTURE, O.FIL_MAT, O.FIL_MODEL, O.COLOR, O.FIL_COLOR, O.COLOR_TYPE, O.COLOR_LAK, O.COLOR_PATINA, 
+                                O.ORDER_GENERALSQ, O.ORDER_FASADSQ, O.GLASS, O.PRIMECH, O.ORDER_COST_PRICECOLUMN, O.ORDER_COST,
+                                O.ORDER_PAY, (O.ORDER_TOTAL_COST - coalesce(O.ORDER_PAY, 0)) * -1 as ORDER_DEBT,
+                                O.ORDER_TOTAL_COST, O.ORDER_DISCOUNT, O.ORDER_DISCOUNT_COMMENT, O.ORDER_COSTUP, O.ORDER_COSTUP_COMMENT,
+                                O.ORDER_COST_PACK, O.ORDER_COST_GLASS, O.FACT_DATE_RECEIVE, O.FACT_DATE_FIRSTSAVE, O.FACT_DATE_LASTSAVE,
+                                O.FACT_DATE_CALCCOST, O.FACT_DATE_EXPORT_ITM, O.FIRSTSTAGEBAD, O.FACT_DATE_PACK, O.FACT_DATE_ORDER_OUT,
+                                O.ORDER_STATUS, O.FACT_DATE_ORDER_CANCEL, O.REASON_ORDER_CANCEL, O.USER_ORDER_CANCELED, O.ORDER_TYPE,
+                                O.TEXTURE_COMMENT, O.COLOR_LAK_COMMENT, O.COLOR_PATINA_COMMENT, O.PRISAD, O.PLAN_DATE_FIRSTSTAGE,
+                                O.PLAN_DATE_PACK, O.FILEPATH_CALC_CLIENT, O.FILEPATH_CALC_MANAGER, O.FILEPATH_BILL, O.VIEW_MOD,
+                                O.TERMOSHOV, O.ASSEMBLY_ANGLE, LIST_STATUSES.STATUS_DESCRIPTION, LIST_STATUSES.STATUS_NUM,
+                                C.IS_PREPAID, C.CLIENTNAME, C.CITY, C.PRICE_COLUMN, C.IS_PREPAID
+
                                 from ORDERS O
                                 left join CLIENTS C on (O.CLIENT = C.CLIENTNAME)
                                 left join LIST_STATUSES on (LIST_STATUSES.STATUS_NUM = O.ORDER_STATUS)
@@ -38,12 +44,19 @@ const data = [
             name: 'get_order_header',
             query: (opt) => {
                 const {$first = '', $skip = '', $where = '', $sort = ''} = opt;
-                q = `select first 1 O.ID, O.ITM_ORDERNUM, O.ORDERNUM, O.ORDER_TYPE, O.MANAGER, C.CLIENTNAME, C.CITY, C.PRICE_COLUMN,
-                O.FASAD_MAT, O.FASAD_MODEL, O.COLOR, O.ORDER_TOTAL_COST, O.ORDER_COST, O.ORDER_PAY,
-                (O.ORDER_TOTAL_COST - coalesce(O.ORDER_PAY, 0)) * -1 as ORDER_DEBT, ORDER_GENERALSQ,
-                O.FACT_DATE_FIRSTSAVE, O.PLAN_DATE_FIRSTSTAGE, O.PLAN_DATE_PACK, O.FACT_DATE_ORDER_OUT,
-                LIST_STATUSES.STATUS_DESCRIPTION, LIST_STATUSES.STATUS_NUM, O.FACT_DATE_FIRSTSAVE, C.IS_PREPAID,
-                O.COLOR_TYPE, O.COLOR_PATINA, O.PRIMECH
+                q = `select first 1 
+                O.ID, O.MANAGER, O.CLIENT, O.ORDERNUM, O.ITM_ORDERNUM, O.FASAD_MAT, O.FASAD_MODEL, O.FASAD_PG_WIDTH,
+                O.TEXTURE, O.FIL_MAT, O.FIL_MODEL, O.COLOR, O.FIL_COLOR, O.COLOR_TYPE, O.COLOR_LAK, O.COLOR_PATINA, 
+                O.ORDER_GENERALSQ, O.ORDER_FASADSQ, O.GLASS, O.PRIMECH, O.ORDER_COST_PRICECOLUMN, O.ORDER_COST,
+                O.ORDER_PAY, (O.ORDER_TOTAL_COST - coalesce(O.ORDER_PAY, 0)) * -1 as ORDER_DEBT,
+                O.ORDER_TOTAL_COST, O.ORDER_DISCOUNT, O.ORDER_DISCOUNT_COMMENT, O.ORDER_COSTUP, O.ORDER_COSTUP_COMMENT,
+                O.ORDER_COST_PACK, O.ORDER_COST_GLASS, O.FACT_DATE_RECEIVE, O.FACT_DATE_FIRSTSAVE, O.FACT_DATE_LASTSAVE,
+                O.FACT_DATE_CALCCOST, O.FACT_DATE_EXPORT_ITM, O.FIRSTSTAGEBAD, O.FACT_DATE_PACK, O.FACT_DATE_ORDER_OUT,
+                O.ORDER_STATUS, O.FACT_DATE_ORDER_CANCEL, O.REASON_ORDER_CANCEL, O.USER_ORDER_CANCELED, O.ORDER_TYPE,
+                O.TEXTURE_COMMENT, O.COLOR_LAK_COMMENT, O.COLOR_PATINA_COMMENT, O.PRISAD, O.PLAN_DATE_FIRSTSTAGE,
+                O.PLAN_DATE_PACK, O.FILEPATH_CALC_CLIENT, O.FILEPATH_CALC_MANAGER, O.FILEPATH_BILL, O.VIEW_MOD,
+                O.TERMOSHOV, O.ASSEMBLY_ANGLE, LIST_STATUSES.STATUS_DESCRIPTION, LIST_STATUSES.STATUS_NUM,
+                C.IS_PREPAID, C.CLIENTNAME, C.CITY, C.PRICE_COLUMN, C.IS_PREPAID
                     from ORDERS O
                     left join CLIENTS C on (O.CLIENT = C.CLIENTNAME)
                     left join LIST_STATUSES on (LIST_STATUSES.STATUS_NUM = O.ORDER_STATUS)
@@ -55,9 +68,14 @@ const data = [
         },
         {
             name: 'get_order_body',
-            query: (opt) => {
+            query: (opt) => { 
                 const {$first = '', $skip = '', $where = '', $sort = ''} = opt;
-                q =`select * from ORDERS_ELEMENTS ${$where} ${$sort}`;
+                q =`select E.ID, E.ORDER_ID, E.NAME, E.HEIGHT, E.WIDTH, E.EL_COUNT, E.SQUARE, E.comment, E.CALC_AS, E.MOD_PRICE,
+                    E.PRICE_COST, E.COST, E.COST, E.COST_SNG, E.CALC_COMMENT,
+                    (select first 1 P.MEASURE_UNIT
+                 from PRICE_LIST P
+                 where upper(P.NOMENCLATURE) = upper(E.NAME)) as MEASURE_UNIT 
+                 from ORDERS_ELEMENTS E ${$where} ${$sort}`;
                 return q;
             },
             defaultOptions: {}

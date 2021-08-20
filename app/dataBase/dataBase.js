@@ -19,13 +19,17 @@ pool.get((err, db) => {
         select * from employers e where e.name = 'Алина'
      */
 
-/*
+
     db.query(`select * from employers e where e.name = 'Алина'`, (err, res) => {
-        //console.log(res);
-       
+        console.log(res);
+       db.detach();
+    }).query(`select * from employers e where e.name = 'Оля'`, (err, res) => {
+        console.log(res);
+       db.detach();
     });
 
-*/
+
+/*
     db.sequentially(`select * from employers e where e.name = 'Алина'`, function(row, index) {
         // EXAMPLE
         //stream.write(JSON.stringify(row));
@@ -51,7 +55,7 @@ pool.get((err, db) => {
 
 
     //db.detach();
-
+*/
     /*
 
     db.on('row', function(row, index, isObject) {
