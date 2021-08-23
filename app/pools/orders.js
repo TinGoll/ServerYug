@@ -1,20 +1,23 @@
 const firebird = require('node-firebird')
 const options = require('../../config/.firebirdDB/settingsDB');
-const pool = firebird.pool(5, options);
 const ordersQuery = require('../query/orders');
 const path = require('path');
+const pool = firebird.pool(5, options);
 
 const __dirn = path.resolve();
 
 const getAllOrders =  (req, res) => {
     try {
-        let options = ordersQuery.getdefaultOptions('get_orders');
+        let options = {...ordersQuery.getdefaultOptions('get_orders')};
+
         let page = req.query._page;
         let limit = req.query._limit;
-        if(limit) options.$first = req.query._limit;
+
+        if(limit && limit > 0) options.$first = limit;
+        if (page) options.$skip = (options.$first * page) - options.$first;
         if(req.query._sort) options.$sort = req.query._sort;
-        if (page && limit) options.$skip = (limit * page) - limit;
         if (options.$sort) options.$sort += req.query._order ? ' ' + req.query._order : '';
+        console.log(options);
         let query = ordersQuery.get('get_orders', options);
         pool.get((err, db) => {
             if (err) return res.status(400).json({error: 'ok', message: 'Ошибка подключения к базе данных.'});
@@ -27,10 +30,8 @@ const getAllOrders =  (req, res) => {
                     let [ count ] = result
                     let limit = options.$first;
                     let pages = limit > 0 ? parseInt(count.COUNT / limit) : 0;
-                    console.log(options);
                     return res.status(200).json({orders: orders, count: count.COUNT, pages});
                 })
-                
             })
         })
         pool.destroy();
