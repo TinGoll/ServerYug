@@ -69,9 +69,10 @@ const data = [
         {
             name: 'get_order_body',
             query: (opt) => { 
+                // E.PRICE_COST, E.COST, E.COST_SNG,
                 const {$first = '', $skip = '', $where = '', $sort = ''} = opt;
-                q =`select E.ID, E.ORDER_ID, E.NAME, E.HEIGHT, E.WIDTH, E.EL_COUNT, E.SQUARE, E.comment, E.CALC_AS, E.MOD_PRICE,
-                    E.PRICE_COST, E.COST, E.COST, E.COST_SNG, E.CALC_COMMENT,
+                q =`select E.ID, E.ORDER_ID, E.NAME, E.HEIGHT, E.WIDTH, E.EL_COUNT, E.SQUARE, E.comment, E.CALC_AS, 
+                    E.COST_SNG, E.CALC_COMMENT,
                     (select first 1 P.MEASURE_UNIT
                  from PRICE_LIST P
                  where upper(P.NOMENCLATURE) = upper(E.NAME)) as MEASURE_UNIT 
@@ -86,6 +87,15 @@ const data = [
                 const {$first = '', $skip = '', $where = '', $sort = ''} = opt;
                 const $tempSort = $sort || 'order by date3, id';
                 q =`select * from orders_date_plan ${$where} ${$tempSort}`;
+                return q;
+            },
+            defaultOptions: {}
+        },
+        {
+            name: 'get_order_firstsave_date',
+            query: (opt) => {
+                const {$first = '', $skip = '', $where = '', $sort = ''} = opt;
+                q =`select FACT_DATE_FIRSTSAVE from orders ${$where}`;
                 return q;
             },
             defaultOptions: {}
