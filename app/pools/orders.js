@@ -4,16 +4,18 @@ const ordersQuery = require('../query/orders');
 const path = require('path');
 const pool = firebird.pool(5, options);
 const fs = require('fs');
+const listsData = require('../assets/lists')
 
 const __dirn = path.resolve();
 
+// Получение всех заказов, лимит по умолчанию - 100
 const getAllOrders =  (req, res) => {
     try {
         let options = {...ordersQuery.getdefaultOptions('get_orders')};
         let page = req.query._page;
         let limit = req.query._limit;
         let find = req.query._find;
-        console.log(find);
+        //console.log(find);
         if(limit && limit > 0) options.$first = limit;
         if (page) options.$skip = (options.$first * page) - options.$first;
         if(req.query._sort) options.$sort = req.query._sort;
@@ -35,21 +37,22 @@ const getAllOrders =  (req, res) => {
                 })
             })
         });
-
         pool.destroy();
-    } catch (error) {
-        console.log(error);
-    }
+    } catch (error) {console.log(error);}
 }
+
+// Тестовая отправка картинки
 const getImageTest = (req, res) => {
     const files = fs.readdirSync(__dirn + '/app/assets/images/');
     const item = files[Math.floor(Math.random()*files.length)];
     res.sendFile(__dirn + '/app/assets/images/' + item);
 }
 
+// Отправка картинки образца
 const getSampleForOrder = (req, res) => {
     //Получаем фото образца из папки в заказах
-    const ipImageServer = '192.168.2.101'
+    const ipImageServer = '192.168.2.101';
+    const dirSample = 'Образец';
     let id =  req.params.id
     let options = {...ordersQuery.getdefaultOptions('get_order_firstsave_date')};
     if (id > 0) options.$where = 'ID = ' + id;
@@ -58,11 +61,8 @@ const getSampleForOrder = (req, res) => {
         pool.get((err, db) => {
             if (err) return res.sendFile(getdefaultSample());
             db.query(query, (e, result) => {
-
                 if (e) return res.sendFile(getdefaultSample());
-
                 db.detach();
-                
                 const [itemRes] = result;
                 if (!itemRes) return res.sendFile(getdefaultSample());
                 dateTxt = itemRes.FACT_DATE_FIRSTSAVE.substr(0, 10);
@@ -72,14 +72,13 @@ const getSampleForOrder = (req, res) => {
                                                                                 parts[2]: parts[2]), parts[1] - 1, parts[0]);
                 let month = date.toLocaleString('default', { month: 'long' });
                 month =  month[0].toUpperCase() + month.slice(1)
-                const pathSample = `//${ipImageServer}/заказы/${date.getFullYear()}/${month}/${id}/Образцы/`
                 try {
+                    const pathSample = `//${ipImageServer}/заказы/${date.getFullYear()}/${month}/${id}/${dirSample}/`;
                     const files = fs.readdirSync(pathSample);
                     [sampleName]= files;
+                    if (!sampleName) return res.sendFile(getdefaultSample());
                     return res.sendFile(pathSample + sampleName);
-                } catch (error) {
-                    return res.sendFile(getdefaultSample());
-                }
+                } catch (error) {return res.sendFile(getdefaultSample());}
             });
         });
         pool.destroy();
@@ -125,19 +124,38 @@ const getOneOrder =  (req, res) => {
     }
 }
 
+const getDataHeaderForCreateOrder = (req, res) => {
+    let lists = {};
+    pool.get((err, db) => {
+        if (err) return res.status(400).json({error: 'ok', message: 'Ошибка подключения к базе данных.'});
+        db.query(ordersQuery.get('get_order_clients'), (err, result) => {
+            if (!err) lists.clients = result.map(item => item.CLIENTNAME.trim());
+            db.query(ordersQuery.get('get_order_nomenclature'), (err, result) => {
+                if (!err) lists.nomenclature = result.map(item => item.NOMENCLATURE.trim());
+                db.query(ordersQuery.get('get_employers'), (err, result) => {
+                    if (!err) lists.employers = result.map(item => item.NAME);
+                    db.detach();
+                    lists = {... lists, ...listsData.orderdata};
+                    return res.status(200).json({lists});
+                })
+            });
+        });
+    });
+    pool.destroy();
+}
+
 const getdefaultSample = () => {
     try {
         const files = fs.readdirSync(__dirn + '/app/assets/images/default/');
         const item = files[Math.floor(Math.random()*files.length)];
         return __dirn + '/app/assets/images/default/' + item;
-    } catch (error) {
-        return null;
-    }
+    } catch (error) {return null;}
 }
 
 module.exports = {
     getAllOrders,
     getOneOrder,
     getImageTest,
-    getSampleForOrder
+    getSampleForOrder,
+    getDataHeaderForCreateOrder
 }

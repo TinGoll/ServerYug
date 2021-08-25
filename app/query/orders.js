@@ -99,6 +99,39 @@ const data = [
                 return q;
             },
             defaultOptions: {}
+        },
+        {
+            name: 'get_order_clients',
+            query: (opt) => {
+                const {$first = '', $skip = '', $where = '', $sort = ''} = opt;
+                q =`select DISTINCT clientname from clients`;
+                return q;
+            },
+            defaultOptions: {}
+        },
+        {
+            name: 'get_order_nomenclature',
+            query: (opt) => {
+                const {$first = '', $skip = '', $where = '', $sort = ''} = opt;
+                q =`select DISTINCT N.NOMENCLATURE,
+                    (select count(L.ID)
+                    from ORDERS_ELEMENTS L
+                    where L.NAME = N.NOMENCLATURE) as CROLE
+                from NOMENCLATURE N
+                where N.nomenclature is not null
+                order by CROLE DESC`;
+                return q;
+            },
+            defaultOptions: {}
+        },
+        {
+            name: 'get_employers',
+            query: (opt) => {
+                const {$first = '', $skip = '', $where = '', $sort = ''} = opt;
+                q =`select DISTINCT e.name from employers e ${$where}`;
+                return q;
+            },
+            defaultOptions: {$where: "e.department ='Офис'"}
         }
     ];
 
