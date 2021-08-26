@@ -4,6 +4,8 @@ const app = express();
 const config = require('./config');
 const {appPort} = config.app;
 
+app.use(express.json({extended: true}));
+
 app.use((req, res, next) => {
     res.header("Access-Control-Allow-Origin", "*");
     res.header('Access-Control-Allow-Methods', 'GET, PUT, POST, DELETE');
@@ -12,6 +14,9 @@ app.use((req, res, next) => {
 })
 
 app.use(express.static(__dirname + "/public"))
+
+
+config.routersAuth(app, '/api')
 
 config.express(app);
 config.routesPackages(app);

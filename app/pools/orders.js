@@ -1,10 +1,11 @@
 const firebird = require('node-firebird')
 const options = require('../../config/.firebirdDB/settingsDB');
 const ordersQuery = require('../query/orders');
+const listsData = require('../assets/lists')
+const fs = require('fs');
+
 const path = require('path');
 const pool = firebird.pool(5, options);
-const fs = require('fs');
-const listsData = require('../assets/lists')
 
 const __dirn = path.resolve();
 
@@ -30,7 +31,7 @@ const getAllOrders =  (req, res) => {
                 let orders = result;
                 let query = ordersQuery.get('get_orders_count', options);
                 db.query(query, (e, result) => {
-                    let [ count ] = result
+                    let [ count ] = result;
                     let limit = options.$first;
                     let pages = limit > 0 ? Math.ceil(count.COUNT / limit) : 0;
                     return res.status(200).json({orders: orders, count: count.COUNT, pages});
@@ -53,7 +54,7 @@ const getSampleForOrder = (req, res) => {
     //Получаем фото образца из папки в заказах
     const ipImageServer = '192.168.2.101';
     const dirSample = 'Образец';
-    let id =  req.params.id
+    let id =  req.params.id;
     let options = {...ordersQuery.getdefaultOptions('get_order_firstsave_date')};
     if (id > 0) options.$where = 'ID = ' + id;
     else return res.sendFile(getdefaultSample());

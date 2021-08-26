@@ -1,6 +1,6 @@
 const {getAllOrders, getOneOrder, getImageTest, getSampleForOrder, getDataHeaderForCreateOrder} = require('../app/pools/orders');
 
-module.exports = (app) => {
+module.exports = (app, url) => {
     app.get("/orders", getAllOrders);
     app.get("/orders/:id", getOneOrder);
     app.get("/testimage", getImageTest);

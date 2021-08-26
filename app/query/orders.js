@@ -62,7 +62,6 @@ const data = [
                     left join LIST_STATUSES on (LIST_STATUSES.STATUS_NUM = O.ORDER_STATUS)
                     ${$where}`;
                 return q;
-
             },
             defaultOptions: {}
         },
@@ -134,7 +133,6 @@ const data = [
             defaultOptions: {$where: "e.department ='Офис'"}
         }
     ];
-
     const get = (name ='', opt = {}) => {
         let q = data.find(item => item.name.toUpperCase() == name.toUpperCase());
         if (!q) return null;

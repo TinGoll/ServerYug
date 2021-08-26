@@ -1,6 +1,6 @@
 const {getAllPackages, getOnePackages} = require('../app/pools/packages');
 
-module.exports = (app) => {
+module.exports = (app, url) => {
     app.get("/packages", (req, res) => {
         res.send(`<h2>Страница всех заказов на упаковке</h2>`);
     });

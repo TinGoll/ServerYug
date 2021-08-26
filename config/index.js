@@ -3,6 +3,7 @@ const express = require('./express');
 const routesSettings = require('./routesSettings');
 const routesOrders = require('./routesOrders');
 const routesPackages = require('./routesPackages');
+const routersAuth = require('./routersAuth')
 const configDb = require('./.firebirdDB/settingsDB');
 
 module.exports = {
@@ -11,5 +12,6 @@ module.exports = {
     routesSettings,
     routesOrders,
     routesPackages,
+    routersAuth,
     configDb
 }
