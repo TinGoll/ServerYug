@@ -2,9 +2,11 @@ const {Router}     = require('express');
 const jwt          = require('jsonwebtoken');
 const bcrypt       = require('bcryptjs');
 const {User}       = require('../entities');
+const settings     = require('../settings');
 
 const { users } = require('../systems')
 const {check, validationResult} = require('express-validator');
+const { userList } = require('../systems/users');
 
 const router = Router();
 
@@ -21,7 +23,7 @@ router.post(
             if (!errors.isEmpty()) return res.status(400).json({errors: errors.array(), message: 'Не корректные данные при регистрации.'});
             
             const {userName, password, otherData} = req.body;
-            const candidate = new User(userName);
+            const candidate = new User({userName});
             candidate.save();
 
         } catch (error) {
@@ -42,16 +44,16 @@ router.post(
             if (!errors.isEmpty()) return res.status(400).json({errors: errors.array(), message: 'Не корректные данные при регистрации.'});
 
             const {userName, password, otherData} = req.body;
-            const user = users.getUser(userName);
-            
-            const isMatch = await bcrypt.compare(password, user.getPasword());
-
+            const user = await users.getUser(userName);
+            if (!user) return res.status(400).json({error: 'User is not found', message: `Пользователя ${userName} не существует.`});
+            const isMatch = await bcrypt.compare(user.getPasword(), password);
+            if (!isMatch) return res.status(400).json({error: 'Wrong password', message: 'Не верный пароль.'});
             const token = jwt.sign(
                 {userId: user.id},
-                'Massive Yug',
+                settings.secretKey,
                 {expiresIn: '1h'}
             )
-
+            user.setToken(token);
             return res.status(200).json({token, userId: user.id});
 
         } catch (error) {
