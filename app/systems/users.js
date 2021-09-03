@@ -20,6 +20,8 @@ const getUser = async (userName) => {
             permissionGroup: item.PERMISSION_GROUP
     }
 
+    console.log(options);
+
     const user = new User(options);
     userList.push(user);
     return user;

@@ -137,6 +137,7 @@ const getDataHeaderForCreateOrder = (req, res) => {
                     if (!err) lists.employers = result.map(item => item.NAME);
                     db.detach();
                     lists = {... lists, ...listsData.orderdata};
+                    //console.log(req.get('Authorization'));
                     return res.status(200).json({lists});
                 })
             });
