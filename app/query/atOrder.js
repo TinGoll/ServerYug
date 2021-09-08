@@ -1,0 +1,37 @@
+const processing = require('./processing');
+
+const data = [
+        {
+            name: 'get_barcodes',
+            query: (opt) => {
+                const {$first = '', $skip = '', $where = '', $sort = ''} = opt;
+                q =`select B.BARCODE, S.ID as ID_SECTOR, S.NAME as SECTOR, E.ID as ID_EMPLOYEE, E.NAME as EMPLOYEE,
+                coalesce(B.STATUS_BARCODE, 0) as BLOCKED
+                    from SECTORS_BARCODE B
+                    left join EMPLOYERS E on (B.ID_EMPLOYERS = E.ID)
+                    left join SECTORS S on (B.ID_SECTOR = S.ID)
+                    ${$where}`
+                return q;
+            },
+            defaultOptions: {}
+        }
+    ];
+    const get = (name ='', opt = {}) => {
+        let q = data.find(item => item.name.toUpperCase() == name.toUpperCase());
+        if (!q) return null;
+        let options = {...q.defaultOptions, ...opt};
+        return q.query(processing(options)).replace(/ +/g, ' ').trim();
+    }
+    const getOptions = () => {
+        return {
+            $first: undefined,
+            $skip: undefined,
+            $where: undefined,
+            $sort: undefined
+        }
+    }
+    const getdefaultOptions = (name ='') => {
+        let q = data.find(item => item.name.toUpperCase() == name.toUpperCase());
+        return q ? q.defaultOptions : null;
+    }
+module.exports = {get, getOptions, getdefaultOptions};

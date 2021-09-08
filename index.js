@@ -20,7 +20,8 @@ app.use((req, res, next) => {
 app.use(express.static(__dirname + "/public"))
 
 
-config.routersAuth(app, '/api')
+config.routersAuth(app, '/api');
+config.routesAtOrder(app, '/api');
 
 config.express(app);
 config.routesPackages(app);
