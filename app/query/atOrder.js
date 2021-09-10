@@ -14,6 +14,20 @@ const data = [
                 return q;
             },
             defaultOptions: {}
+        },
+        {
+            name: 'get_dep',
+            query: (opt) => {
+                const {$first = '', $skip = '', $where = '', $sort = ''} = opt;
+                q =`select distinct D.ID_JOURNAL_NAME, N.NAME, S.STATUS_NUM, S.STATUS_DESCRIPTION
+                from JOURNAL_DEP D
+                left join JOURNAL_NAMES N on (D.ID_JOURNAL_NAME = N.ID)
+                left join LIST_STATUSES S on (D.ID_STATUS = S.ID)   
+                ${$where}
+                `
+                return q;
+            },
+            defaultOptions: {}
         }
     ];
     const get = (name ='', opt = {}) => {

@@ -1,6 +1,8 @@
-const {executeRequest} = require('./dataBase');
+const {executeRequest, newTransaction, formatDateToDb} = require('./dataBase');
 
 
 module.exports = {
-    executeRequest
+    executeRequest,
+    newTransaction,
+    formatDateToDb
 };

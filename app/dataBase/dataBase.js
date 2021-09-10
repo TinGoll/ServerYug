@@ -1,6 +1,7 @@
 const Firebird = require('node-firebird');
 const config = require('../../config');
-const options = require('../../config/.firebirdDB/settingsDB')
+const options = require('../../config/.firebirdDB/settingsDB');
+const Transaction = require('./Transaction');
 
 const pool = Firebird.pool(5, options);
 
@@ -18,6 +19,22 @@ const executeRequest =  (query) => {
     });
 }
 
+const newTransaction = (isolationNumber = 1) => {
+    if (isolationNumber === 1) return new Transaction(pool, Firebird.ISOLATION_READ_COMMITED);
+    if (isolationNumber === 2) return new Transaction(pool, Firebird.ISOLATION_READ_UNCOMMITTED);
+    if (isolationNumber === 3) return new Transaction(pool, Firebird.ISOLATION_REPEATABLE_READ);
+    if (isolationNumber === 4) return new Transaction(pool, Firebird.ISOLATION_SERIALIZABLE);
+    if (isolationNumber === 5) return new Transaction(pool, Firebird.ISOLATION_READ_COMMITED_READ_ONLY);
+}
+
+const formatDateToDb = (date) => {
+    if (!date) return null;
+    return date.toLocaleDateString();
+}
+
 module.exports = {
-    executeRequest
+    executeRequest,
+    newTransaction,
+    formatDateToDb
+
 }
