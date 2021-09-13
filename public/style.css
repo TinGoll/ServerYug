@@ -1,0 +1,34 @@
+body {
+    background: #424242;
+    color: rgb(197, 197, 197);
+}
+
+th {
+    text-align: center;
+    background: #636363;
+    color: gold;
+}
+
+.header {
+    text-align: center;
+}
+
+.body-table {
+    background: #727272;
+    color:rgb(238, 235, 221);
+}
+
+
+.body-th {
+    width: 30%;
+}
+
+.body-cell {
+    color: rgb(244, 253, 114);
+}
+
+.body-td:hover {
+    font-style:normal;
+
+}
+

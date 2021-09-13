@@ -2,40 +2,52 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link href="style.css" rel="stylesheet">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>API Firebird + Node</title>
 </head>
 <body>
-    <h2>Главная Страница</h2>
-
-    <p>Рабочие ссылки:</p>
-    <a href="/packages/">Страница всех заказов на упаковке</a>
-    <br/>
-    <a href="/packages/1528">Пример страницы заказа с номером 1528 (номер может быть динамический)</a>
-
-    <p>
-        <i><b>Структура проекта:</b></i> <br/>
-        <p></p>
-        <b>app/pools</b> - папка с функцииями для pool запросов к базе данных <br/>
-        <b>app/query</b> - папка для sql-запросов к базе данных, используются в pool <br/>
-        <b>config/.firebirdDB</b> - папка содержит настройки подключения к базе данных <br/>
-        <b>config/app.js</b> - файл с настройками API (сейчас содержит только порт подключения) <br/>
-        <b>config/routes*.js</b> - файлы содержат пути для доступа извне к API <br/>
-        <b>public</b> - статичные HTML файлы API <br/>
-    </p>
-</body>
-</html>
-
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
-</head>
-<body>
+    <header>
+        <div class="header">
+            <h2>API Справочник</h2>
+        </div>
+    </header>
+    <div class="container">
+        <table class="body-table">
+            <thead>
+              <tr>
+                  <th class="body-th">Адрес запроса</th>
+                  <th>Описание</th>
+              </tr>
+            </thead>
     
-</body>
+            <tbody>
+              <tr class="body-td">
+                <td class="body-cell">http://192.168.2.10:3131/orders</td>
+                <td>
+                    <b>GET Запрос</b>: Возвращает массив заказов [<i>orders</i>], 
+                        общее колличество заказов <i>count</i> и колличество страниц <i>pages</i>. <br>
+                    <b>Параметры:</b> _sort, _order, _page, _limit
+                </td>
+              </tr>
+              <tr class="body-td">
+                <td class="body-cell">http://192.168.2.10:3131/orders/ID(number)</td>
+                <td> 
+                    <b>GET Запрос</b>: Возвращает заказ order, шапку header, тело заказа body и планы plans.<br>
+                    <b>Параметры:</b> Нет
+                </td>
+              </tr>
+              <tr class="body-td">
+                <td class="body-cell">http://192.168.2.10:3131/orders/sample/ID(number)</td>
+                <td>
+                    <b>GET Запрос</b>: Возвращает изображение образца, которое находиться в папке заказов "Образец".<br>
+                    <b>Параметры:</b> Нет
+                </td>
+              </tr>
+            </tbody>
+          </table>
+    </div>
 </html>

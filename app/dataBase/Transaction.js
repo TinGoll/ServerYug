@@ -3,15 +3,14 @@ module.exports = class Transaction {
     db;
     transaction;
 
-
     constructor (pool, isolation) {
         this.pool = pool;
         pool.get((err, db) => {
             if (err) throw err;
             this.db = db;
-            db.transaction(isolation,  (err, transaction) => {
+            db.transaction(isolation, async (err, trans) => {
                 if (err) throw err;
-                this.transaction = transaction;
+                this.transaction = await trans;
             })
         });
     }
@@ -24,22 +23,14 @@ module.exports = class Transaction {
         });
     }
     commit () {
-        transaction.commit((err) => {
+        this.transaction.commit((err) => {
             if (err) {
-                transaction.rollback();
+                this.transaction.rollback();
                 throw err;
             }
         });
     }
-    rollback () {
-        this.transaction.rollback();
-    }
-
-    detach() {
-        this.db.detach();
-    }
-    
-    destroy() {
-        this.pool.destroy();
-    }
+    rollback () {this.transaction.rollback();}
+    detach   () {this.db.detach();}
+    destroy  () {this.pool.destroy();}
 }

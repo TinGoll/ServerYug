@@ -3,6 +3,7 @@ const db                        = require('../dataBase');
 const atOrderQuery              = require('../query/atOrder');
 const orderQuery                = require('../query/orders');
 const {check, validationResult} = require('express-validator');
+const {format}                  = require('date-format-parse');
 
 // /api/at-order/
 
@@ -49,76 +50,73 @@ router.post(
             const errors = validationResult(req);
             if (!errors.isEmpty()) return res.status(500)
                         .json({errors: errors.array(), message: defaultError});
-
             const {idTransfer: transferBarcode, idAccepted: acceptedBarcode, orders: registerOrders, ...other} = req.body;
-
             if (!Array.isArray(registerOrders) || registerOrders.length <= 0) return res.status(500)
                         .json({errors: ['Нет заказов для передачи.'], message: defaultError});
             if (transferBarcode == acceptedBarcode) return res.status(500)
                         .json({errors: ['Нельзя передавать заказ самому себе.'], message: defaultError});
-
             let query = atOrderQuery.get('get_barcodes', {
                 $where: `UPPER(B.BARCODE) = '${transferBarcode.toUpperCase()}' 
                             or UPPER(B.BARCODE) = '${acceptedBarcode.toUpperCase()}'`});
-
             const barcodes = await db.executeRequest(query);
-            
             const transfer = barcodes.find(item => item.BARCODE.toUpperCase() === transferBarcode.toUpperCase());
             const accepted = barcodes.find(item => item.BARCODE.toUpperCase() === acceptedBarcode.toUpperCase());
-
             if (!transfer) journalErrors.push('Участок отправитель не определен.');
             if (!accepted) journalErrors.push('Участок получатель не определен.');
             if (transfer && transfer.BLOCKED != 0) journalErrors.push(`Карточка отправителя заблокирована, пожалуйста обратитесь к руководству.`);
             if (accepted && accepted.BLOCKED != 0) journalErrors.push(`Карточка получателя заблокирована, пожалуйста обратитесь к руководству.`);
             if (journalErrors.length > 0) return res.status(500).json({errors: journalErrors, message: defaultError});
-            
             query = atOrderQuery.get('get_dep', {
                     $where: `
                     D.ID_SECTOR_TRANSFER = ${transfer ? transfer.ID_SECTOR : null} and
                     D.ID_SECTOR_ACCEPTED = ${accepted ? accepted.ID_SECTOR : null}
                 `});
-              
             const journal = await db.executeRequest(query);
-    
             if (!journal || journal.length == 0) return res.status(500).
                         json({errors: [`Участок ${transfer ? transfer.SECTOR : 
                                 '"отправитель" не определен и'} не может передавать заказы ${accepted ? 'участку ' + accepted.SECTOR : 
                                         'не определенному участку.'}`], 
                         message: defaultError});
-            
             query = orderQuery.get('get_orders', {$where: `O.ID IN (${registerOrders.map(o => o.idOrder).join(', ')})`});    
             const orders = await db.executeRequest(query);
             query = `select J.ID, J.ID_ORDER, N.NAME
                         from JOURNALS J
                         left join JOURNAL_NAMES N on (J.ID_JOURNAL_NAMES = N.ID)
                         where J.ID_JOURNAL_NAMES in (${journal.map(j => j.ID_JOURNAL_NAME).join(', ')}) and
-                            J.ID_ORDER in (${registerOrders.map(o => o.idOrder).join(', ')})`;
-            
-            const adoptedOrders = await db.executeRequest(query); 
-            const transaction = db.newTransaction();     
-   
+                        J.ID_ORDER in (${registerOrders.map(o => o.idOrder).join(', ')})`;
+            const adoptedOrders = await db.executeRequest(query);
             for (const o of registerOrders) {
                 const order = orders.find(ord => ord.ID === o.idOrder);
                 if (order) {
+
                     const statusAllow = journal.find(j => j.STATUS_NUM === order.ORDER_STATUS)
                     if (!statusAllow) {
                         o.completed = false;
                         o.description = `Не верный статус "${order.STATUS_DESCRIPTION}", ожидается: "${journal.map(j => j.STATUS_DESCRIPTION).join(', ')}"`;
                         continue
                     }
-                    const isAdopted = adoptedOrders.find(o => o.ID_ORDER == order.ID)
-
+                    const isAdopted = adoptedOrders.find(o => o.ID_ORDER == order.ID);
                     if (isAdopted) {
                         o.completed = false;
                         o.description = `Заказ уже принят в "${isAdopted.NAME}"`;
                         continue
                     }
 
-                    const query = ``;
-
-
-
-
+                    const query = `
+                                execute block
+                                returns (ID integer)
+                                as
+                                begin
+                                    insert into JOURNALS (ID_ORDER, ID_JOURNAL_NAMES, NOTE, TS)
+                                    values (${order.ID}, ${journal[0].ID_JOURNAL_NAME}, ${other.comment ? '\'' + other.comment + '\'' : null}, 
+                                        '${format(new Date(), 'DD.MM.YYYY HH:mm:ss')}') returning ID into :ID;
+                                    insert into JOURNAL_TRANS (ID_EMPLOYEE, ID_SECTOR, ID_JOURNAL, MODIFER)
+                                    values (${transfer.ID_EMPLOYEE}, ${transfer.ID_SECTOR}, :ID, -1);
+                                    insert into JOURNAL_TRANS (ID_EMPLOYEE, ID_SECTOR, ID_JOURNAL, MODIFER)
+                                    values (${accepted.ID_EMPLOYEE}, ${accepted.ID_SECTOR}, :ID, 1);
+                                    suspend;
+                                end`;
+                    const idJournal = await db.executeRequest(query);
                     o.completed = true;
                     o.description = `успешно!`;
                 }else{
@@ -126,11 +124,9 @@ router.post(
                     o.description = `Номер заказа [${o.idOrder}] не найден в базе данных.`;
                 }
             }
-            
             const countOrders = registerOrders.filter(o => o.completed).length;
             let resultMessage = `${countOrders ? '☑️ Принято ' + countOrders + ' из ' + registerOrders.length : '❌ Не один из заказов не принят.'}`;
             if (countOrders == registerOrders.length)  resultMessage = '✅ Все заказы приняты.'
-
             return res.status(201).json({
                 message: resultMessage,
                 orders: registerOrders
@@ -141,7 +137,5 @@ router.post(
         }
     }
 );
-
-
 
 module.exports = router;
