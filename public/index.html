@@ -28,7 +28,7 @@
               <tr class="body-td">
                 <td class="body-cell">http://192.168.2.10:3131/orders</td>
                 <td>
-                    <b>GET Запрос</b>: Возвращает массив заказов [<i>orders</i>], 
+                    <b class="get-query">GET Запрос</b>: Возвращает массив заказов [<i>orders</i>], 
                         общее колличество заказов <i>count</i> и колличество страниц <i>pages</i>. <br>
                     <b>Параметры:</b> _sort, _order, _page, _limit
                 </td>
@@ -36,17 +36,49 @@
               <tr class="body-td">
                 <td class="body-cell">http://192.168.2.10:3131/orders/ID(number)</td>
                 <td> 
-                    <b>GET Запрос</b>: Возвращает заказ order, шапку header, тело заказа body и планы plans.<br>
+                    <b class="get-query">GET Запрос</b>: Возвращает заказ order, шапку header, тело заказа body и планы plans.<br>
                     <b>Параметры:</b> Нет
                 </td>
               </tr>
               <tr class="body-td">
                 <td class="body-cell">http://192.168.2.10:3131/orders/sample/ID(number)</td>
                 <td>
-                    <b>GET Запрос</b>: Возвращает изображение образца, которое находиться в папке заказов "Образец".<br>
+                    <b class="get-query">GET Запрос</b>: Возвращает изображение образца, которое находиться в папке заказов "Образец".<br>
                     <b>Параметры:</b> Нет
                 </td>
               </tr>
+
+              <tr class="body-td">
+                <td class="body-cell">http://192.168.2.10:3131/api/journals/get-journals</td>
+                <td>
+                    <b class="get-query">GET Запрос</b>: Возвращает список доступных журналов, требуеться Token.<br>
+                    <b>Параметры:</b> Нет
+                </td>
+              </tr>
+
+              <tr class="body-td">
+                <td class="body-cell">http://192.168.2.10:3131/api/journals/ID(number)</td>
+                <td>
+                    <b class="get-query">GET Запрос</b>: Возвращает содержимое журнала по ID, тербуеться Token.<br>
+                    <b>Параметры:</b> Нет
+                </td>
+              </tr>
+
+              <tr class="body-td">
+                <td class="body-cell">http://192.168.2.10:3131/api/at-order/data</td>
+                <td>
+                    <b class="get-query">GET Запрос</b>: Возвращает список Barcodes.<br>
+                    <b>Параметры:</b> Нет
+                </td>
+              </tr>
+              <tr class="body-td">
+                <td class="body-cell">http://192.168.2.10:3131/api/at-order/add</td>
+                <td>
+                    <b class="post-query">POST Запрос</b>: Добавляет запись в журнал.<br>
+                    <b>body:</b> <code>"idTransfer", "idAccepted", "orders"</code>
+                </td>
+              </tr>
+
             </tbody>
           </table>
     </div>

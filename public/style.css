@@ -20,15 +20,23 @@ th {
 
 
 .body-th {
-    width: 30%;
+    width: 35%;
 }
 
 .body-cell {
     color: rgb(244, 253, 114);
+    padding: 10px;
 }
 
 .body-td:hover {
     font-style:normal;
 
+}
+
+.get-query {
+    color: yellowgreen;
+}
+.post-query {
+    color: rgb(9, 248, 248);
 }
 

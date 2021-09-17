@@ -28,6 +28,55 @@ const data = [
                 return q;
             },
             defaultOptions: {}
+        },
+        {
+            name: 'get_adopted',
+            query: (opt) => {
+                const {$first = '', $skip = '', $where = '', $sort = ''} = opt;
+                q =`select ${$first} ${$skip}
+                distinct O.ITM_ORDERNUM,
+                (select NAME
+                from SECTORS
+                where ID =
+                (select first 1 T2.ID_SECTOR
+                from JOURNALS J2
+                left join JOURNAL_TRANS T2 on (T2.ID_JOURNAL = J2.ID)
+                where T2.MODIFER = - 1 and
+                      J2.ID = J.ID)
+                ) as TRANSFER, SECTOR.NAME as ACCEPTED, J.TS, 
+                S.STATUS_DESCRIPTION, O.ORDER_FASADSQ, J.NOTE
+                from JOURNALS J
+                left join ORDERS O on (J.ID_ORDER = O.ID)
+                left join clients c on (o.client = c.clientname)
+                left join LIST_STATUSES S on (O.ORDER_STATUS = S.STATUS_NUM)
+                left join JOURNAL_TRANS T on (T.ID_JOURNAL = J.ID)
+                left join SECTORS SECTOR on (T.ID_SECTOR = SECTOR.ID)
+                ${$where}
+                ${$sort}`;
+                return q;
+            },
+            defaultOptions: {
+                $first: '100',
+                $sort: 'J.TS desc',
+                $where: 'T.MODIFER = 1' // обязательный параметр
+            }
+        },
+        {
+            name: 'get_adopted_pages_count',
+            query: (opt) => {
+                const {$first = '', $skip = '', $where = '', $sort = ''} = opt;
+                q =`select distinct count(J.ID)
+                from JOURNALS J
+                left join ORDERS O on (J.ID_ORDER = O.ID)
+                left join LIST_STATUSES S on (O.ORDER_STATUS = S.STATUS_NUM)
+                left join JOURNAL_TRANS T on (T.ID_JOURNAL = J.ID)
+                left join clients c on (o.client = c.clientname)
+                left join SECTORS SECTOR on (T.ID_SECTOR = SECTOR.ID)
+                ${$where}`
+                return q;
+            },
+            defaultOptions: {
+            }
         }
     ];
     const get = (name ='', opt = {}) => {
@@ -46,6 +95,6 @@ const data = [
     }
     const getdefaultOptions = (name ='') => {
         let q = data.find(item => item.name.toUpperCase() == name.toUpperCase());
-        return q ? q.defaultOptions : null;
+        return q ? q.defaultOptions : {};
     }
 module.exports = {get, getOptions, getdefaultOptions};

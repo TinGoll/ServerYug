@@ -21,12 +21,11 @@ const getAllOrders =  (req, res) => {
         if (page) options.$skip = (options.$first * page) - options.$first;
         if(req.query._sort) options.$sort = req.query._sort;
         if (options.$sort) options.$sort += req.query._order ? ' ' + req.query._order : '';
-        console.log(options);
         let query = ordersQuery.get('get_orders', options);
         pool.get((err, db) => {
-            if (err) return res.status(400).json({error: 'ok', message: 'Ошибка подключения к базе данных.'});
+            if (err) return res.status(400).json({errors: ['ok'], message: 'Ошибка подключения к базе данных.'});
             db.query(query, (e, result) => {
-                if (e) return res.status(500).json({error: 'ok', message: 'Ошибка выполнения запроса.'});
+                if (e) return res.status(500).json({errors: ['ok'], message: 'Ошибка выполнения запроса.'});
                 db.detach();
                 let orders = result;
                 let query = ordersQuery.get('get_orders_count', options);
@@ -93,11 +92,11 @@ const getOneOrder =  (req, res) => {
         let query = ordersQuery.get('get_order_header', options);
         let order = {};
         pool.get((err, db) => {
-            if (err) return res.status(400).json({error: 'ok', message: 'Ошибка подключения к базе данных.'});
+            if (err) return res.status(400).json({errors: ['ok'], message: 'Ошибка подключения к базе данных.'});
             db.query(query, (e, result) => {
-                if (e) return res.status(500).json({error: 'ok', message: 'Ошибка выполнения запроса.'});
+                if (e) return res.status(500).json({errors: ['ok'], message: 'Ошибка выполнения запроса.'});
                 db.detach();
-                if (!result.length) return res.status(400).json({error: 'ok', message: `Заказ № ${id} не найден.`});
+                if (!result.length) return res.status(400).json({errors: ['ok'], message: `Заказ № ${id} не найден.`});
                 order.header = result;
                 options = {};
                 options.$where = `ORDER_ID = ${id}`;
@@ -128,7 +127,7 @@ const getOneOrder =  (req, res) => {
 const getDataHeaderForCreateOrder = (req, res) => {
     let lists = {};
     pool.get((err, db) => {
-        if (err) return res.status(400).json({error: 'ok', message: 'Ошибка подключения к базе данных.'});
+        if (err) return res.status(400).json({errors: ['ok'], message: 'Ошибка подключения к базе данных.'});
         db.query(ordersQuery.get('get_order_clients'), (err, result) => {
             if (!err) lists.clients = result.map(item => item.CLIENTNAME.trim());
             db.query(ordersQuery.get('get_order_nomenclature'), (err, result) => {

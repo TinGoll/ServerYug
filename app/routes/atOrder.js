@@ -79,16 +79,17 @@ router.post(
                         message: defaultError});
             query = orderQuery.get('get_orders', {$where: `O.ID IN (${registerOrders.map(o => o.idOrder).join(', ')})`});    
             const orders = await db.executeRequest(query);
+
             query = `select J.ID, J.ID_ORDER, N.NAME
                         from JOURNALS J
                         left join JOURNAL_NAMES N on (J.ID_JOURNAL_NAMES = N.ID)
                         where J.ID_JOURNAL_NAMES in (${journal.map(j => j.ID_JOURNAL_NAME).join(', ')}) and
                         J.ID_ORDER in (${registerOrders.map(o => o.idOrder).join(', ')})`;
+
             const adoptedOrders = await db.executeRequest(query);
             for (const o of registerOrders) {
                 const order = orders.find(ord => ord.ID === o.idOrder);
                 if (order) {
-
                     const statusAllow = journal.find(j => j.STATUS_NUM === order.ORDER_STATUS)
                     if (!statusAllow) {
                         o.completed = false;
@@ -101,19 +102,24 @@ router.post(
                         o.description = `Заказ уже принят в "${isAdopted.NAME}"`;
                         continue
                     }
-
                     const query = `
                                 execute block
                                 returns (ID integer)
                                 as
                                 begin
                                     insert into JOURNALS (ID_ORDER, ID_JOURNAL_NAMES, NOTE, TS)
-                                    values (${order.ID}, ${journal[0].ID_JOURNAL_NAME}, ${other.comment ? '\'' + other.comment + '\'' : null}, 
+                                    values (${order.ID}, ${journal[0].ID_JOURNAL_NAME}, ${o.comment ? '\'' + o.comment + '\'' : null}, 
                                         '${format(new Date(), 'DD.MM.YYYY HH:mm:ss')}') returning ID into :ID;
+
                                     insert into JOURNAL_TRANS (ID_EMPLOYEE, ID_SECTOR, ID_JOURNAL, MODIFER)
                                     values (${transfer.ID_EMPLOYEE}, ${transfer.ID_SECTOR}, :ID, -1);
+
                                     insert into JOURNAL_TRANS (ID_EMPLOYEE, ID_SECTOR, ID_JOURNAL, MODIFER)
                                     values (${accepted.ID_EMPLOYEE}, ${accepted.ID_SECTOR}, :ID, 1);
+
+                                    insert into cost_of_work (id_journal, id_work_price, price)
+                                    select :ID as id_journal, p.id as id_price, p.price from work_prices p
+                                    where p.id_sector = ${transfer.ID_SECTOR} and p.optional != -1;
                                     suspend;
                                 end`;
                     const idJournal = await db.executeRequest(query);
