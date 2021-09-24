@@ -6,6 +6,7 @@ const settings                  = require('../settings');
 const jwt                       = require('jsonwebtoken');
 const { users }                 = require('../systems')
 const atOrderQuery              = require('../query/atOrder');
+const jfunction                 = require('../systems/virtualJournalsFun');
 
 // /api/journals/
 
@@ -36,15 +37,15 @@ router.get(
 )
 // /api/journals/adopted
 router.get (
-    '/adopted',
+    '/adopted/:id',
     async (req, res) => {
         try {
+            
             const options   = {...atOrderQuery.getdefaultOptions('get_adopted')};
             const limit     = req.query._limit;
             const page      = req.query._page;
-            const find      = req.query._find;
             const sort      = req.query._sort;
-
+            const find      =  req.params.id;
             const d1        = req.query._d1; 
             const d2        = req.query._d2;
 
@@ -98,52 +99,29 @@ router.get(
     async (req, res) => {
         const defaultError = 'Ошибка получения журнала.';
         try {
-            let journal;
             const id =  req.params.id;
-            switch (parseInt(id)) {
-                case 1:
-                    journal = await journalSborka();
-                    break;
-                default:
-                    break;
-            }
-            
-            if (!journal) return res.status(500).json({errors: ['Такой журнал не существует.'], message: defaultError});
-            return res.json({journal});
-/*
             const token = req.get('Authorization');
             jwt.verify(token, settings.secretKey, async (err, decoded) => {
                 if (err) return res.status(500)
                     .json({errors: [err.message, err.expiredAt ? 'Срок действия до: ' + format(err.expiredAt, 'DD.MM.YYYY HH:mm:ss') : null], message: 'Токен не действителен.'});
+                let journal;
+                switch (parseInt(id)) {
+                    case 1:
+                        journal = await jfunction.journalSborka();
+                        break;
+                    default:
+                        break;
+                }
+                if (!journal) return res.status(500).json({errors: ['Такой журнал не существует.'], message: defaultError});
                 const user = await users.getUserToID(decoded.userId);
-                return res.json({journals});
+                return res.json({journal});
             });
 
-*/
         } catch (error) {
             return res.status(500).json({errors: [error.message], message: defaultError});
         }
     }
 )
-
-/*
- * Функции для возврата журналов 
- */
-
-const journalSborka = async () => {
-    try {
-        let query = `select * from REPORT_SBORKA (1);`
-        const overdue = await db.executeRequest(query);
-        query = `select * from REPORT_SBORKA (2);`
-        const forToday = await db.executeRequest(query);
-        query = `select * from REPORT_SBORKA (3);`
-        const forFuture = await db.executeRequest(query);
-        return {overdue, forToday, forFuture}
-    } catch (error) {
-        throw error;
-    }
-}
-
 
 String.prototype.toDate = function(format)
 {

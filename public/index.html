@@ -72,6 +72,31 @@
                 </td>
               </tr>
               <tr class="body-td">
+                <td class="body-cell"> http://192.168.2.10:3131/api/journals/adopted/ID(number)</td>
+                <td>
+                    <b class="get-query">GET Запрос</b>: Возвращает список принятых заказов, кол-во всего и кол-во страниц.<br>
+                    <b>Параметры:</b>_limit=300 - кол-во строк, _page=1 - страница, 
+                    _d1=01.09.2021 - дата начала фильтрации, _d2=01.09.2021 - дата конец фильтрации, _filter=москва - умный фильтр
+                </td>
+              </tr>
+              <tr class="body-td">
+                <td class="body-cell">http://192.168.2.10:3131/api/at-order/salary-transactions/ID(number)</td>
+                <td>
+                    <b class="get-query">GET Запрос</b>: Возвращает список транзакций по зарплате журнала. ID - id журнала.<br>
+                    <b>Параметры:</b> Нет
+                </td>
+              </tr>
+              <tr class="body-td">
+                <td class="body-cell">http://192.168.2.10:3131/api/at-order/salary-report/:idtransaction(number)</td>
+                <td>
+                    <b class="get-query">GET Запрос</b>: Возвращает данные по зарплате по номеру транзакции<br>
+                    <b>Параметры:</b> Нет
+                </td>
+              </tr>
+
+
+
+              <tr class="body-td">
                 <td class="body-cell">http://192.168.2.10:3131/api/at-order/add</td>
                 <td>
                     <b class="post-query">POST Запрос</b>: Добавляет запись в журнал.<br>

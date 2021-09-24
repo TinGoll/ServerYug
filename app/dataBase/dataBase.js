@@ -19,6 +19,16 @@ const executeRequest =  (query) => {
     });
 }
 
+const beginTransaction = (callback) => {
+     // db = DATABASE
+    pool.get((err, db) => {
+        if (err) callback(err);
+        db.transaction(Firebird.ISOLATION_READ_COMMITED, callback);
+        db.detach();
+        pool.destroy();
+    });
+}
+
 const newTransaction = (isolationNumber = 1) => {
     if (isolationNumber === 1) return new Transaction(pool, Firebird.ISOLATION_READ_COMMITED);
     if (isolationNumber === 2) return new Transaction(pool, Firebird.ISOLATION_READ_UNCOMMITTED);
@@ -35,6 +45,6 @@ const formatDateToDb = (date) => {
 module.exports = {
     executeRequest,
     newTransaction,
-    formatDateToDb
-
+    formatDateToDb,
+    beginTransaction
 }
