@@ -93,6 +93,14 @@
                     <b>Параметры:</b> Нет
                 </td>
               </tr>
+               <tr class="body-td">
+                <td class="body-cell">http://192.168.2.10:3131/api/at-order/preliminary-calculation/ID(number)</td>
+                <td>
+                    <b class="get-query">GET Запрос</b>: Возвращает предварительный просчет зарплаты по участкам. ID - id журнала.<br>
+                    <b>Параметры:</b> Нет
+                </td>
+              </tr>
+
 
 
 
@@ -101,6 +109,14 @@
                 <td>
                     <b class="post-query">POST Запрос</b>: Добавляет запись в журнал.<br>
                     <b>body:</b> <code>"idTransfer", "idAccepted", "orders"</code>
+                </td>
+              </tr>
+
+              <tr class="body-td">
+                <td class="body-cell">http://192.168.2.10:3131/api/at-order/close-billing-period</td>
+                <td>
+                    <b class="patch-query">PATCH Запрос</b>: Закрывает расчетный период по зарплате.<br>
+                    <b>body:</b> <code> Требует измененный (или оригинальный) объект с запроса "предварительный просчет (preliminary-calculation)"</code>
                 </td>
               </tr>
 

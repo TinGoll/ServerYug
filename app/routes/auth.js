@@ -98,7 +98,7 @@ router.post(
                 settings.secretKey,
                 {expiresIn: '8h'}
             )
-            //console.log(token)
+            console.log(token)
             user.setToken(token);
             return res.status(200).json({token, userId: user.id});
         } catch (error) {

@@ -20,13 +20,18 @@ const executeRequest =  (query) => {
 }
 
 const beginTransaction = (callback) => {
-     // db = DATABASE
-    pool.get((err, db) => {
+    try {
+        // db = DATABASE
+        pool.get((err, db) => {
         if (err) callback(err);
         db.transaction(Firebird.ISOLATION_READ_COMMITED, callback);
         db.detach();
         pool.destroy();
     });
+    } catch (error) {
+        console.log(error);
+    }
+   
 }
 
 const newTransaction = (isolationNumber = 1) => {

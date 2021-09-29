@@ -34,7 +34,7 @@ const data = [
             query: (opt) => {
                 const {$first = '', $skip = '', $where = '', $sort = ''} = opt;
                 q =`select ${$first} ${$skip}
-                distinct O.ITM_ORDERNUM,
+                distinct O.ID, O.ITM_ORDERNUM,
                 (select NAME
                 from SECTORS
                 where ID =
@@ -43,8 +43,8 @@ const data = [
                 left join JOURNAL_TRANS T2 on (T2.ID_JOURNAL = J2.ID)
                 where T2.MODIFER = - 1 and
                       J2.ID = J.ID)
-                ) as TRANSFER, SECTOR.NAME as ACCEPTED, J.TS, 
-                S.STATUS_DESCRIPTION, O.ORDER_FASADSQ, J.NOTE
+                ) as TRANSFER, SECTOR.NAME as ACCEPTED, 
+                S.STATUS_DESCRIPTION, O.ORDER_FASADSQ, J.NOTE, J.TRANSFER_DATE
                 from JOURNALS J
                 left join ORDERS O on (J.ID_ORDER = O.ID)
                 left join clients c on (o.client = c.clientname)

@@ -4,6 +4,9 @@ const atOrderQuery              = require('../query/atOrder');
 const orderQuery                = require('../query/orders');
 const {check, validationResult} = require('express-validator');
 const {format}                  = require('date-format-parse');
+const settings                  = require('../settings');
+const { users }                 = require('../systems');
+const jwt                       = require('jsonwebtoken');
 
 const {
     getIdSectorArrToNameOldSector,
@@ -37,7 +40,6 @@ router.get(
         try {
             let query = atOrderQuery.get('get_barcodes');
             let barcodes = await db.executeRequest(query);
-            
             return res.status(200).json({barcodes});
         } catch (error) {
             return res.status(500).json({errors: [error.message], message: 'Ошибка запроса: Get barcodes'});
@@ -50,7 +52,8 @@ router.get(
     async (req, res) => {
         try {
             const idJournalName =  req.params.id;
-            const transactions = await db.executeRequest(`select T.ID, cast(T.DATE_ADDED as date) as DATE_ADDED, T.NAME,
+            const transactions = await db.executeRequest(`
+                select T.ID, cast(T.DATE_ADDED as date) as DATE_ADDED, T.NAME,
                 cast(sum(coalesce(O.ORDER_FASADSQ, 0) * W.PRICE) as decimal(8,2)) as MONEY
                 from SALARY_TRANS_EL E
                 left join JOURNALS J on (E.ID_JOURNAL = J.ID)
@@ -58,8 +61,11 @@ router.get(
                 left join COST_OF_WORK W on (W.ID_JOURNAL = J.ID)
                 left join ORDERS O on (J.ID_ORDER = O.ID)
                 where J.ID_JOURNAL_NAMES = ${idJournalName}
-                group by T.ID, T.DATE_ADDED, T.NAME`
+                group by T.ID, T.DATE_ADDED, T.NAME
+                order by T.DATE_ADDED desc`
             );
+            if (!transactions || transactions.length == 0) 
+                    return res.status(500).json({errors: ['List empty'], message: 'Список пуст.'});
             return res.status(200).json({transactions});
         } catch (error) {
              return res.status(500).json({errors: [error.message], message: 'Ошибка запроса: Get transactions'});
@@ -74,7 +80,8 @@ router.get(
         try {
             const idTrans =  req.params.idtransaction;
             const salary = await db.executeRequest(`
-                select O.ID, P.ID_SECTOR, S.NAME as SECTOR, P.ID as ID_WORK, P.NAME as WORK_NAME,
+                select O.ID, J.ID as ID_JOIRNAL, P.ID_SECTOR, S.NAME as SECTOR, 
+                W.ID as ID_WORK_OF_COST, P.ID as ID_WORK, P.NAME as WORK_NAME,
                 cast(coalesce(O.ORDER_FASADSQ, 0) as decimal(6,3)) as ORDER_FASADSQ,
                 cast(W.PRICE as decimal(8,2)) as PRICE,
                 cast(coalesce(O.ORDER_FASADSQ, 0) * W.PRICE as decimal(8,2)) as MONEY
@@ -95,15 +102,18 @@ router.get(
                 const ordersId  = [...new Set(salary.filter(o => o.SECTOR == sectorName).map(o => o.ID))];
                 const sector = {name: sectorName, orders: []}
                 for (const id of ordersId) {
+                    const idJournal = salary.find(s => s.ID == id).ID_JOIRNAL;
                     const works = salary.filter(o => o.ID == id).map(w => {
                         return {
-                            work: w.WORK_NAME,
-                            square: w.ORDER_FASADSQ,
-                            price: w.PRICE,
-                            money: w.MONEY
+                            workOfCostId:   w.ID_WORK_OF_COST,
+                            workId:         w.ID_WORK,
+                            work:           w.WORK_NAME,
+                            square:         w.ORDER_FASADSQ,
+                            price:          w.PRICE,
+                            money:          w.MONEY
                         }
                     });
-                    const order = {id, works};
+                    const order = {id, idJournal, works};
                     sector.orders.push(order);
                 }
                 sectors.push(sector);
@@ -115,7 +125,137 @@ router.get(
         }
     }
 );
-
+//  Preliminary calculation
+// /api/at-order/preliminary-calculation/:id
+router.get(
+    '/preliminary-calculation/:id',
+    async (req, res) => {
+        const defaultError = `При получаении данных по предварительному просчету, произошла ошибка.`;
+        const idJournalName =  req.params.id;
+        try {
+            const query = `select O.ID, J.ID as ID_JOIRNAL, P.ID_SECTOR, S.NAME as SECTOR, 
+                            W.ID as ID_WORK_OF_COST, P.ID as ID_WORK, P.NAME as WORK_NAME,
+                            cast(coalesce(O.ORDER_FASADSQ, 0) as decimal(6,3)) as ORDER_FASADSQ, 
+                            cast(W.PRICE as decimal(8,2)) as PRICE,
+                            cast(coalesce(O.ORDER_FASADSQ, 0) * W.PRICE as decimal(8,2)) as MONEY, P.OPTIONAL
+                                from JOURNALS J
+                                left join ORDERS O on (J.ID_ORDER = O.ID)
+                                left join COST_OF_WORK W on (W.ID_JOURNAL = J.ID)
+                                left join WORK_PRICES P on (W.ID_WORK_PRICE = P.ID)
+                                left join SECTORS S on (P.ID_SECTOR = S.ID)
+                                left join SALARY_TRANS_EL E on (E.ID_JOURNAL = J.ID)
+                                where E.ID is null and j.id_journal_names = ${idJournalName}`;
+            const salary = await db.executeRequest(query);
+            const sectors = [];
+            if (salary.length == 0) return res.status(500).json({errors: ['Array empty'], message: 'Список пуст'});
+            const sectorsName = [...new Set(salary.map(s => s.SECTOR))];
+            for (const sectorName of sectorsName) {
+                const ordersId  = [...new Set(salary.filter(o => o.SECTOR == sectorName).map(o => o.ID))];
+                const sectorID = salary.find(s => s.SECTOR == sectorName).ID_SECTOR;
+                const sector = {name: sectorName, journalNameId: idJournalName, otherTransactoins: {}, orders: []};
+                for (const id of ordersId) {
+                    const idJournal = salary.find(s => s.ID == id).ID_JOIRNAL;
+                    const works = salary.filter(o => o.ID == id).map(w => {
+                        return {
+                            workOfCostId:   w.ID_WORK_OF_COST,
+                            workId:         w.ID_WORK,
+                            work:           w.WORK_NAME,
+                            square:         w.ORDER_FASADSQ,
+                            price:          w.PRICE,
+                            money:          w.MONEY,
+                            optional:       w.OPTIONAL,
+                            isDeleted:      0
+                        }
+                    });
+                    const order = {id, idJournal, isDeleted:0, works};
+                    sector.orders.push(order);
+                }
+                // Дополнительные начисления и списания.
+                const users = await db.executeRequest(`select E.NAME from EMPLOYERS E where E.ID_SECTOR = ${sectorID}`);
+                sector.otherTransactoins = {
+                    users: [...users.map(u => u.NAME)],
+                    values: [
+                        {name: 'Налог', value: 0, modifer: -1},
+                        {name: 'Штраф', value: 0, modifer: -1},
+                        {name: 'Возврат долга', value: 0, modifer: -1},
+                        {name: 'Отпускные', value: 0, modifer: 1}
+                    ],
+                    data: []
+                }
+                sectors.push(sector);
+            }
+            return res.status(200).json({sectors});
+        } catch (error) {
+            console.log(error);
+            return res.status(500).json({errors: [error.message], message: defaultError});
+        }
+    }
+);
+// /api/at-order/close-billing-period
+router.patch(
+    '/close-billing-period',
+    async (req, res) => {
+        let decoded;
+        const {sectors} = req.body;
+        if (!sectors || sectors.length == 0) return res.status(500).json({errors: ['Список пуст.'], message: 'Нет данных.'})
+        const token = req.get('Authorization');
+        try {decoded = jwt.verify(token, settings.secretKey);} 
+        catch (error) {return res.status(500).json({errors: [error.message], message: 'Некорректный токен'})}
+        const user = await users.getUserToID(decoded.userId);
+        try {
+            const transaction = await db.executeRequest(`
+                                insert into SALARY_TRANSACTION (
+                                ID_USER, DATE_ADDED, SETTLEMENT_DATE, NAME, 
+                                TRANSACTION_AMOUNT, TRANSACTION_COMPLETED,
+                                IS_JOURNAL_ENTRY, ID_JOURNAL_CASH)
+                                values (
+                                    ${user.id}, 
+                                    '${format(new Date(), 'DD.MM.YYYY HH:mm:ss')}', 
+                                    '${format(new Date(), 'DD.MM.YYYY')}',
+                                    'Расчет заработной платы', 0, 0, 0, 0
+                                ) returning ID;`
+            )
+            // Обработка работ.
+            for (const sector of sectors) {
+                for (const order of sector.orders) {
+                    if (order.isDeleted) continue;
+                    for (const work of order.works) {
+                        if (work.isDeleted) {
+                            await db.executeRequest(`delete from cost_of_work w where w.id = ${work.workOfCostId}`);
+                            continue;
+                        }else if (work.workOfCostId) {
+                            await db.executeRequest(`update COST_OF_WORK W set W.PRICE = ${work.price} where W.ID = ${work.workOfCostId}`)
+                        }else {
+                            await db.executeRequest(`insert into COST_OF_WORK (ID_JOURNAL, ID_WORK_PRICE, PRICE) values (${order.idJournal}, ${work.workId}, ${work.price})`);
+                        }
+                    }
+                    await db.executeRequest(`
+                        insert into SALARY_TRANS_EL (ID_JOURNAL, ID_TRANSACTION)
+                        values (${order.idJournal}, ${transaction.ID})
+                    `);
+                }
+                 // Доп списания / начисления
+                if (sector.otherTransactoins) {
+                    for (const otherTransaction of sector.otherTransactoins.data) {
+                        if (!otherTransaction.name) continue;
+                        if (!otherTransaction.value && otherTransaction.value > 0) continue;
+                        if (!otherTransaction.modifer == 1 || !otherTransaction.modifer == -1) continue;
+                        await db.executeRequest(`
+                            insert into OTHER_TRANSACTIONS (ID_TRANSACTION, NAME, AMOUNT, MODIFER) 
+                            values (${transaction.ID}, '${otherTransaction.name}', ${otherTransaction.value}, ${otherTransaction.modifer})
+                        `);
+                    }
+                }
+            }
+            // Закрытие Транзакции
+            await db.executeRequest(`update SALARY_TRANSACTION T set T.TRANSACTION_COMPLETED = 1 where T.ID = ${transaction.ID}`);
+            //Тут добавление в журнал расходов, сделать после запуска.
+            return res.status(201).json({transaction});
+        } catch (error) {
+            return res.status(500).json({errors: [error.message], message: 'Не удаллось закрыть расчетный период, в связи с ошибкой транзакции.'});
+        }  
+    }
+);
 
 // /api/at-order/add
 router.post(
@@ -131,7 +271,10 @@ router.post(
             const errors = validationResult(req);
             if (!errors.isEmpty()) return res.status(500)
                         .json({errors: errors.array(), message: defaultError});
+
             const {idTransfer: transferBarcode, idAccepted: acceptedBarcode, orders: registerOrders, ...other} = req.body;
+            console.log(other);
+
             if (!Array.isArray(registerOrders) || registerOrders.length <= 0) return res.status(500)
                         .json({errors: ['Нет заказов для передачи.'], message: defaultError});
             if (transferBarcode == acceptedBarcode) return res.status(500)
@@ -216,9 +359,9 @@ router.post(
                                 returns (ID integer)
                                 as
                                 begin
-                                    insert into JOURNALS (ID_ORDER, ID_JOURNAL_NAMES, NOTE, TS)
+                                    insert into JOURNALS (ID_ORDER, ID_JOURNAL_NAMES, NOTE, TS, TRANSFER_DATE)
                                     values (${order.ID}, ${journal[0].ID_JOURNAL_NAME}, ${o.comment ? '\'' + o.comment + '\'' : null}, 
-                                        '${format(new Date(), 'DD.MM.YYYY HH:mm:ss')}') returning ID into :ID;
+                                        '${format(new Date(), 'DD.MM.YYYY HH:mm:ss')}', '${format(other.date, 'DD.MM.YYYY HH:mm:ss')}') returning ID into :ID;
 
                                     insert into JOURNAL_TRANS (ID_EMPLOYEE, ID_SECTOR, ID_JOURNAL, MODIFER)
                                     values (${transfer.ID_EMPLOYEE}, ${transfer.ID_SECTOR}, :ID, -1);
@@ -228,7 +371,7 @@ router.post(
 
                                     insert into cost_of_work (id_journal, id_work_price, price)
                                     select :ID as id_journal, p.id as id_price, p.price from work_prices p
-                                    where p.id_sector = ${transfer.ID_SECTOR} and p.optional != -1;
+                                    where p.id_sector = ${transfer.ID_SECTOR};
                                     suspend;
                                 end`;
                         //Выполнение запроса на добавление записи в журнал

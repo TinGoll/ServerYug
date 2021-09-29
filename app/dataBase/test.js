@@ -2,7 +2,7 @@ const db = require('../dataBase');
 const {format} = require('date-format-parse');
 
 const fun = async (db) => {
-    let query = `select T.ID from salary_transaction t where t.transaction_completed = 1`
+    let query = `select T.ID from salary_transaction t where t.transaction_completed = 1 and t.id > 776`
     const transactions = await db.executeRequest(query);
 
     for (const transaction of transactions) {
