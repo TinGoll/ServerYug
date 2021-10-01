@@ -23,29 +23,16 @@ router.get(
     '/get-journals', 
     async (req, res) => {
         const defaultError = 'Ошибка получения списка журналов.';
-        const permissions = [
-            {name: 'Journals [get-journals] get all', data: [...journals]},     // Все журналы
-            {name: 'Journals [get-journals] get sborka', data: [journals[0]]},  // Журнал сборки
-            {name: 'Journals [get-journals] get shlif', data: [journals[1]]},   // Журнал Шлифовки
-            {name: 'Journals [get-journals] get lak', data: [journals[2]]},     // Журнал лакировки
-            {name: 'Journals [get-journals] get upak', data: [journals[3]]}     // Журнал упаковки
-        ];
         try {
             const token = req.get('Authorization');
             jwt.verify(token, settings.secretKey, async (err, decoded) => {
                 if (err) return res.status(500)
                     .json({errors: [err.message, err.expiredAt ? 'Срок действия до: ' + format(err.expiredAt, 'DD.MM.YYYY HH:mm:ss') : null], message: 'Токен не действителен.'});
                 const user = await users.getUserToID(decoded.userId);
-
-                if (await user.permissionCompare(permissions[0].name)) return res.json({journals: permissions[0].data});
-                const set = new Set();
-                for (let i = 1; i < permissions.length; i++) {
-                    if (await user.permissionCompare(permissions[i].name)) {
-                        for (const j of permissions[i].data) 
-                                if (!set.has(j)) set.add(j);
-                    }
-                }
-                return res.json({journals: [...set]});
+                // Проверка прав на получение журналов
+                const journals = await jfunction.permissionSet(user);
+                if (journals.length == 0) return res.status(500).json({errors:['Список журналов пуст.'], message: defaultError})
+                return res.json({journals});
             });
         } catch (error) {
             return res.status(500).json({errors: [error.message], message: defaultError});
@@ -56,6 +43,7 @@ router.get(
 router.get (
     '/adopted/:id',
     async (req, res) => {
+        const defaultError = 'Ошибка получения принятых заказов';
         const permissionName = 'Journals [adopted] get';
         try {
             
@@ -75,6 +63,21 @@ router.get (
             if (limit)  options.$first = limit;
             if (page)   options.$skip = (page * limit) - limit;
             if (sort)   options.$sort = sort; 
+
+            // Проверка токена, получение пользователя.
+            let decoded;
+            const token = req.get('Authorization');
+            try {decoded = jwt.verify(token, settings.secretKey);} 
+            catch (error) {return res.status(500).json({errors: [error.message], message: 'Некорректный токен'})}
+            const user = await users.getUserToID(decoded.userId);
+            // Конец проверки токена.
+
+            // Проверка прав
+            const journals = await jfunction.permissionSet(user);
+            const allowed = journals.find(j => j.id == find);
+            if(!allowed) return res.status(500)
+                .json({errors: ['У тебя нет прав на получение данных этого журнала. Обратись а администатору.'], message: defaultError});
+            // Конец проверки прав.
 
             if (find && find > 0) {
                 options.$where =  `${options.$where} and J.ID_JOURNAL_NAMES = ${find}`;
@@ -115,7 +118,6 @@ router.get (
 router.get(
     '/:id',
     async (req, res) => {
-        const permissionName = 'Journals [id] get';
         const defaultError = 'Ошибка получения журнала.';
         try {
             const id =  req.params.id;
@@ -123,6 +125,13 @@ router.get(
             jwt.verify(token, settings.secretKey, async (err, decoded) => {
                 if (err) return res.status(500)
                     .json({errors: [err.message, err.expiredAt ? 'Срок действия до: ' + format(err.expiredAt, 'DD.MM.YYYY HH:mm:ss') : null], message: 'Токен не действителен.'});
+                // Проверка прав на получение журнала
+                const user = await users.getUserToID(decoded.userId);
+                const journals = await jfunction.permissionSet(user);
+                const allowed = journals.find(j => j.id == id);
+                if(!allowed) return res.status(500)
+                        .json({errors: ['У тебя нет прав на получение данного журнала. Обратись а администатору.'], message: defaultError});
+                // Проверка прав завершена
                 let journal;
                 switch (parseInt(id)) {
                     case 1:
@@ -132,7 +141,6 @@ router.get(
                         break;
                 }
                 if (!journal) return res.status(500).json({errors: ['Такой журнал не существует.'], message: defaultError});
-                const user = await users.getUserToID(decoded.userId);
                 return res.json({journal});
             });
 

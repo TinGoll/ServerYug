@@ -7,6 +7,7 @@ const {format}                  = require('date-format-parse');
 const settings                  = require('../settings');
 const { users }                 = require('../systems');
 const jwt                       = require('jsonwebtoken');
+const jfunction                 = require('../systems/virtualJournalsFun');
 
 const {
     getIdSectorArrToNameOldSector,
@@ -19,13 +20,14 @@ const {
 // /api/at-order/
 
 const router = Router();
+
+
 // /api/at-order/data
 router.get(
     '/data',
     async (req, res) => {
         try {
             let query = atOrderQuery.get('get_barcodes');
-   
             let barcodes = await db.executeRequest(query);
             return res.status(200).json({barcodes});
         } catch (error) {
@@ -52,6 +54,22 @@ router.get(
     async (req, res) => {
         try {
             const idJournalName =  req.params.id;
+
+            // Проверка токена, получение пользователя.
+            let decoded;
+            const token = req.get('Authorization');
+            try {decoded = jwt.verify(token, settings.secretKey);}
+            catch (error) {return res.status(500).json({errors: [error.message], message: 'Ошибка авторизации.'})}
+            const user = await users.getUserToID(decoded.userId);
+            // Конец проверки токена.
+
+            // Проверка прав
+            const journals = await jfunction.permissionSet(user);
+            const allowed = journals.find(j => j.id == idJournalName);
+            if(!allowed) return res.status(500)
+                .json({errors: ['У тебя нет прав на получение данных этого журнала. Обратись а администатору.'], message: defaultError});
+            // Конец проверки прав.
+
             const transactions = await db.executeRequest(`
                 select T.ID,
                     cast(T.DATE_ADDED as date) as DATE_ADDED,
@@ -157,6 +175,21 @@ router.get(
         const defaultError = `При получаении данных по предварительному просчету, произошла ошибка.`;
         const idJournalName =  req.params.id;
         try {
+            // Проверка токена, получение пользователя.
+            let decoded;
+            const token = req.get('Authorization');
+            try {decoded = jwt.verify(token, settings.secretKey);}
+            catch (error) {return res.status(500).json({errors: [error.message], message: 'Ошибка авторизации.'})}
+            const user = await users.getUserToID(decoded.userId);
+            // Конец проверки токена.
+
+            // Проверка прав
+            const journals = await jfunction.permissionSet(user);
+            const allowed = journals.find(j => j.id == idJournalName);
+            if(!allowed) return res.status(500)
+                .json({errors: ['У тебя нет прав на получение данных этого журнала. Обратись а администатору.'], message: defaultError});
+            // Конец проверки прав.
+
             const query = `select O.ID, O.ITM_ORDERNUM, J.ID as ID_JOIRNAL, P.ID_SECTOR, S.NAME as SECTOR, 
                             W.ID as ID_WORK_OF_COST, P.ID as ID_WORK, P.NAME as WORK_NAME,
                             cast(coalesce(O.ORDER_FASADSQ, 0) as decimal(6,3)) as ORDER_FASADSQ, 

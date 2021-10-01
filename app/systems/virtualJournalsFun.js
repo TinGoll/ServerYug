@@ -2,6 +2,35 @@ const db = require('../dataBase');
 
 const statusList = [];
 
+// Права журнала
+const journals = [
+    {id: 1, name: 'Журнал сборки'},
+    {id: 2, name: 'Журнал шлифовки'},
+    {id: 3, name: 'Журнал Лакировки'},
+    {id: 4, name: 'Журнал Упаковки'}
+]
+
+const permissions = [
+    {name: 'Journals [get-journals] get all', data: [...journals]},     // Все журналы
+    {name: 'Journals [get-journals] get sborka', data: [journals[0]]},  // Журнал сборки
+    {name: 'Journals [get-journals] get shlif', data: [journals[1]]},   // Журнал Шлифовки
+    {name: 'Journals [get-journals] get lak', data: [journals[2]]},     // Журнал лакировки
+    {name: 'Journals [get-journals] get upak', data: [journals[3]]}     // Журнал упаковки
+];
+
+//Получение списка прав
+
+const permissionSet = async (user) => {
+    const set = new Set();
+    for (let i = 0; i < permissions.length; i++) {
+        if (await user.permissionCompare(permissions[i].name)) {
+            for (const j of permissions[i].data) 
+                    if (!set.has(j)) set.add(j);
+        }
+    }
+    return [...set];
+}
+//Функции журналов
 
 const getIdSectorArrToNameOldSector = async (oldname) => {
     try {
@@ -79,5 +108,8 @@ module.exports = {
     getNameOldSectorArrToIdNewSector,
     getStatusNumOldToIdStatusOld,
     getPlansToOrderId,
-    isWorkPlan
+    isWorkPlan,
+    permissionSet,
+    journals,
+    permissions
 }
