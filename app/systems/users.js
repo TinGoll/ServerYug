@@ -3,10 +3,9 @@ const db = require('../dataBase');
 let userList = [];
 
 const getUser = async (userName) => {
-    
     const condidate = userList.find(item => item.userName.toUpperCase() == userName.toUpperCase());
     if (condidate) return condidate;
-    const res = await db.executeRequest(`select E.ID, E.MGMT_PASS, E.NAME, E.DEPARTMENT, E.STATUS, E.LOCATION 
+    const res = await db.executeRequest(`select E.ID, E.MGMT_PASS, E.NAME, E.DEPARTMENT, E.STATUS, E.LOCATION, PERMISSION_GROUP_ID
                                                     from EMPLOYERS E where UPPER(E.NAME) = '${userName.toUpperCase()}'`);
     if (!res || res.length == 0) return null;                                                
     const [item] = res;                               
@@ -17,7 +16,7 @@ const getUser = async (userName) => {
         departament: item.DEPARTMENT,
         status: item.STATUS,
         location: item.LOCATION,
-        permissionGroup: item.PERMISSION_GROUP
+        permissionGroupId: item.PERMISSION_GROUP_ID
     });
     userList.push(user);
     return user;
@@ -27,8 +26,7 @@ const getUserToID = async (id) => {
     try {
         const condidate = userList.find(item => item.id === id);
         if (condidate) return condidate;
-
-        const [item] = await db.executeRequest(`select E.ID, E.MGMT_PASS, E.NAME, E.DEPARTMENT, E.STATUS, E.LOCATION 
+        const [item] = await db.executeRequest(`select E.ID, E.MGMT_PASS, E.NAME, E.DEPARTMENT, E.STATUS, E.LOCATION, PERMISSION_GROUP_ID
                                                         from EMPLOYERS E where E.id = ${id}`);
         if (!item)  return null;                                                                
         const user = new User({
@@ -38,7 +36,7 @@ const getUserToID = async (id) => {
             departament: item.DEPARTMENT,
             status: item.STATUS,
             location: item.LOCATION,
-            permissionGroup: item.PERMISSION_GROUP
+            permissionGroupId: item.PERMISSION_GROUP_ID
         });
         userList.push(user);
         return user;

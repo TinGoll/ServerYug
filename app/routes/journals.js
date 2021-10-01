@@ -12,23 +12,40 @@ const jfunction                 = require('../systems/virtualJournalsFun');
 
 const journals = [
     {id: 1, name: 'Журнал сборки'},
-    {id: 2, name: 'Журнал шлифовки'}
+    {id: 2, name: 'Журнал шлифовки'},
+    {id: 3, name: 'Журнал Лакировки'},
+    {id: 4, name: 'Журнал Упаковки'}
 ]
 
 const router = Router();
 // /api/journals/get-journals
-
 router.get(
     '/get-journals', 
     async (req, res) => {
         const defaultError = 'Ошибка получения списка журналов.';
+        const permissions = [
+            {name: 'Journals [get-journals] get all', data: [...journals]},     // Все журналы
+            {name: 'Journals [get-journals] get sborka', data: [journals[0]]},  // Журнал сборки
+            {name: 'Journals [get-journals] get shlif', data: [journals[1]]},   // Журнал Шлифовки
+            {name: 'Journals [get-journals] get lak', data: [journals[2]]},     // Журнал лакировки
+            {name: 'Journals [get-journals] get upak', data: [journals[3]]}     // Журнал упаковки
+        ];
         try {
             const token = req.get('Authorization');
             jwt.verify(token, settings.secretKey, async (err, decoded) => {
                 if (err) return res.status(500)
                     .json({errors: [err.message, err.expiredAt ? 'Срок действия до: ' + format(err.expiredAt, 'DD.MM.YYYY HH:mm:ss') : null], message: 'Токен не действителен.'});
                 const user = await users.getUserToID(decoded.userId);
-                return res.json({journals});
+
+                if (await user.permissionCompare(permissions[0].name)) return res.json({journals: permissions[0].data});
+                const set = new Set();
+                for (let i = 1; i < permissions.length; i++) {
+                    if (await user.permissionCompare(permissions[i].name)) {
+                        for (const j of permissions[i].data) 
+                                if (!set.has(j)) set.add(j);
+                    }
+                }
+                return res.json({journals: [...set]});
             });
         } catch (error) {
             return res.status(500).json({errors: [error.message], message: defaultError});
@@ -39,6 +56,7 @@ router.get(
 router.get (
     '/adopted/:id',
     async (req, res) => {
+        const permissionName = 'Journals [adopted] get';
         try {
             
             const options   = {...atOrderQuery.getdefaultOptions('get_adopted')};
@@ -65,7 +83,7 @@ router.get (
             if (dateFirst) options.$where =  `${options.$where} and CAST(J.TS as date) >= '${format(dateFirst, 'DD.MM.YYYY')}'`;
             if (dateSecond) options.$where =  `${options.$where} and CAST(J.TS as date) <= '${format(dateSecond, 'DD.MM.YYYY')}'`;
             if (filter) {
-                const fiters = filter.trim().split(' ');
+                const fiters = String(filter).trim().split(' ');
                 for (const f of fiters) {
                     options.$where = `${options.$where} and
                     upper(
@@ -97,6 +115,7 @@ router.get (
 router.get(
     '/:id',
     async (req, res) => {
+        const permissionName = 'Journals [id] get';
         const defaultError = 'Ошибка получения журнала.';
         try {
             const id =  req.params.id;

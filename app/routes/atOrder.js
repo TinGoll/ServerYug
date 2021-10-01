@@ -53,8 +53,12 @@ router.get(
         try {
             const idJournalName =  req.params.id;
             const transactions = await db.executeRequest(`
-                select T.ID, cast(T.DATE_ADDED as date) as DATE_ADDED, T.NAME,
-                cast(sum(coalesce(O.ORDER_FASADSQ, 0) * W.PRICE) as decimal(8,2)) as MONEY
+                select T.ID,
+                    cast(T.DATE_ADDED as date) as DATE_ADDED,
+                    T.NAME, cast((sum(coalesce(O.ORDER_FASADSQ, 0) * W.PRICE) +
+                    (select coalesce(sum(T2.AMOUNT * T2.modifer), 0) as OTHER_AMOUNT
+                    from OTHER_TRANSACTIONS T2
+                    where T2.ID_TRANSACTION = T.ID)) as decimal(8,2)) as MONEY
                 from SALARY_TRANS_EL E
                 left join JOURNALS J on (E.ID_JOURNAL = J.ID)
                 left join SALARY_TRANSACTION T on (E.ID_TRANSACTION = T.ID)
@@ -62,8 +66,8 @@ router.get(
                 left join ORDERS O on (J.ID_ORDER = O.ID)
                 where J.ID_JOURNAL_NAMES = ${idJournalName}
                 group by T.ID, T.DATE_ADDED, T.NAME
-                order by T.DATE_ADDED desc`
-            );
+                order by T.DATE_ADDED desc
+            `);
             if (!transactions || transactions.length == 0) 
                     return res.status(500).json({errors: ['List empty'], message: 'Список пуст.'});
             return res.status(200).json({transactions});
@@ -80,18 +84,18 @@ router.get(
         try {
             const idTrans =  req.params.idtransaction;
             const salary = await db.executeRequest(`
-                select O.ID, J.ID as ID_JOIRNAL, P.ID_SECTOR, S.NAME as SECTOR, 
+                select O.ID, O.ITM_ORDERNUM, J.ID as ID_JOIRNAL, P.ID_SECTOR, S.NAME as SECTOR, 
                 W.ID as ID_WORK_OF_COST, P.ID as ID_WORK, P.NAME as WORK_NAME,
                 cast(coalesce(O.ORDER_FASADSQ, 0) as decimal(6,3)) as ORDER_FASADSQ,
                 cast(W.PRICE as decimal(8,2)) as PRICE,
                 cast(coalesce(O.ORDER_FASADSQ, 0) * W.PRICE as decimal(8,2)) as MONEY
                 from SALARY_TRANS_EL E
-                left join JOURNALS J on (E.ID_JOURNAL = J.ID)
-                left join SALARY_TRANSACTION T on (E.ID_TRANSACTION = T.ID)
-                left join COST_OF_WORK W on (W.ID_JOURNAL = J.ID)
-                left join WORK_PRICES P on (W.ID_WORK_PRICE = P.ID)
-                left join ORDERS O on (J.ID_ORDER = O.ID)
-                left join SECTORS S on (P.ID_SECTOR = S.ID)
+                    left join JOURNALS J on (E.ID_JOURNAL = J.ID)
+                    left join SALARY_TRANSACTION T on (E.ID_TRANSACTION = T.ID)
+                    left join COST_OF_WORK W on (W.ID_JOURNAL = J.ID)
+                    left join WORK_PRICES P on (W.ID_WORK_PRICE = P.ID)
+                    left join ORDERS O on (J.ID_ORDER = O.ID)
+                    left join SECTORS S on (P.ID_SECTOR = S.ID)
                 where T.ID = ${idTrans}
                 order by O.ID, P.NUM_SORT`
             );
@@ -100,9 +104,28 @@ router.get(
             const sectorsName = [...new Set(salary.map(s => s.SECTOR))];
             for (const sectorName of sectorsName) {
                 const ordersId  = [...new Set(salary.filter(o => o.SECTOR == sectorName).map(o => o.ID))];
-                const sector = {name: sectorName, orders: []}
+                const sectorID = salary.find(s => s.SECTOR == sectorsName).ID_SECTOR;
+                const sector = {id: sectorID, name: sectorName, otherTransactoins: {}, orders: []}
+
+                const otherTrans = await db.executeRequest(`select T.NAME, T.DESCRIPTION, T.AMOUNT, T.MODIFER
+                                                        from OTHER_TRANSACTIONS T
+                                                        where T.ID_TRANSACTION = ${idTrans} and T.ID_SECTOR = ${sectorID}`);
+                sector.otherTransactoins = {
+                    data: [
+                        ...otherTrans.map((t) => {
+                            return {
+                                userName: t.NAME,
+                                description: t.DESCRIPTION,
+                                amount: t.AMOUNT,
+                                modifer: t.MODIFER
+                            }
+                        })
+                    ] 
+                }
+                
                 for (const id of ordersId) {
                     const idJournal = salary.find(s => s.ID == id).ID_JOIRNAL;
+                    const itmOrderNum = salary.find(s => s.ID == id).ITM_ORDERNUM;
                     const works = salary.filter(o => o.ID == id).map(w => {
                         return {
                             workOfCostId:   w.ID_WORK_OF_COST,
@@ -113,7 +136,8 @@ router.get(
                             money:          w.MONEY
                         }
                     });
-                    const order = {id, idJournal, works};
+
+                    const order = {id, itmOrderNum, idJournal, works};
                     sector.orders.push(order);
                 }
                 sectors.push(sector);
@@ -133,7 +157,7 @@ router.get(
         const defaultError = `При получаении данных по предварительному просчету, произошла ошибка.`;
         const idJournalName =  req.params.id;
         try {
-            const query = `select O.ID, J.ID as ID_JOIRNAL, P.ID_SECTOR, S.NAME as SECTOR, 
+            const query = `select O.ID, O.ITM_ORDERNUM, J.ID as ID_JOIRNAL, P.ID_SECTOR, S.NAME as SECTOR, 
                             W.ID as ID_WORK_OF_COST, P.ID as ID_WORK, P.NAME as WORK_NAME,
                             cast(coalesce(O.ORDER_FASADSQ, 0) as decimal(6,3)) as ORDER_FASADSQ, 
                             cast(W.PRICE as decimal(8,2)) as PRICE,
@@ -152,9 +176,10 @@ router.get(
             for (const sectorName of sectorsName) {
                 const ordersId  = [...new Set(salary.filter(o => o.SECTOR == sectorName).map(o => o.ID))];
                 const sectorID = salary.find(s => s.SECTOR == sectorName).ID_SECTOR;
-                const sector = {name: sectorName, journalNameId: idJournalName, otherTransactoins: {}, orders: []};
+                const sector = {id:sectorID, name: sectorName, journalNameId: idJournalName, otherTransactoins: {}, orders: []};
                 for (const id of ordersId) {
                     const idJournal = salary.find(s => s.ID == id).ID_JOIRNAL;
+                    const itmOrderNum = salary.find(s => s.ID == id).ITM_ORDERNUM;
                     const works = salary.filter(o => o.ID == id).map(w => {
                         return {
                             workOfCostId:   w.ID_WORK_OF_COST,
@@ -167,7 +192,7 @@ router.get(
                             isDeleted:      0
                         }
                     });
-                    const order = {id, idJournal, isDeleted:0, works};
+                    const order = {id, itmOrderNum, idJournal, isDeleted:0, works};
                     sector.orders.push(order);
                 }
                 // Дополнительные начисления и списания.
@@ -175,10 +200,12 @@ router.get(
                 sector.otherTransactoins = {
                     users: [...users.map(u => u.NAME)],
                     values: [
-                        {name: 'Налог', value: 0, modifer: -1},
-                        {name: 'Штраф', value: 0, modifer: -1},
-                        {name: 'Возврат долга', value: 0, modifer: -1},
-                        {name: 'Отпускные', value: 0, modifer: 1}
+                        {userName: '', description: 'Налог', amount: 0, modifer: -1},
+                        {userName: '', description: 'Штраф', amount: 0, modifer: -1},
+                        {userName: '', description: 'Возврат долга', amount: 0, modifer: -1},
+                        {userName: '', description: 'Больничный', amount: 0, modifer: -1},
+                        {userName: '', description: 'Отпускные', amount: 0, modifer: 1},
+                        {userName: '', description: 'Аванс', amount: 0, modifer: 1}
                     ],
                     data: []
                 }
@@ -191,6 +218,8 @@ router.get(
         }
     }
 );
+
+
 // /api/at-order/close-billing-period
 router.patch(
     '/close-billing-period',
@@ -235,14 +264,15 @@ router.patch(
                     `);
                 }
                  // Доп списания / начисления
-                if (sector.otherTransactoins) {
+                if (sector.otherTransactoins.data.length > 0) {
                     for (const otherTransaction of sector.otherTransactoins.data) {
                         if (!otherTransaction.name) continue;
                         if (!otherTransaction.value && otherTransaction.value > 0) continue;
                         if (!otherTransaction.modifer == 1 || !otherTransaction.modifer == -1) continue;
                         await db.executeRequest(`
-                            insert into OTHER_TRANSACTIONS (ID_TRANSACTION, NAME, AMOUNT, MODIFER) 
-                            values (${transaction.ID}, '${otherTransaction.name}', ${otherTransaction.value}, ${otherTransaction.modifer})
+                            insert into OTHER_TRANSACTIONS (ID_TRANSACTION, ID_SECTOR, NAME, DESCRIPTION, AMOUNT, MODIFER) 
+                            values (${transaction.ID}, ${sector.id}, '${otherTransaction.userName}', 
+                                '${otherTransaction.description}', ${Math.abs(otherTransaction.amount)}, ${otherTransaction.modifer})
                         `);
                     }
                 }
@@ -325,24 +355,24 @@ router.post(
                     if (!isWorkPlan(namesTransferOldSector, plans)) {
                         o.completed = false;
                         o.description = `Участок "${transfer.SECTOR}" не включен в планы по этому заказу.`;
-                        continue
+                        continue;
                     }
                     if (!isWorkPlan(namesAcceptedOldSector, plans)) {
                         o.completed = false;
                         o.description = `Для данного заказа нет работ по участку "${accepted.SECTOR}"`;
-                        continue
+                        continue;
                     }
                     const isAdopted = adoptedOrders.find(o => o.ID_ORDER == order.ID);
                     if (isAdopted) {
                         o.completed = false;
                         o.description = `Заказ уже принят в "${isAdopted.NAME}"`;
-                        continue
+                        continue;
                     }
                     const statusAllow = journal.find(j => j.STATUS_NUM === order.ORDER_STATUS)
                     if (!statusAllow) {
                         o.completed = false;
                         o.description = `Не верный статус "${order.STATUS_DESCRIPTION}", ожидается: "${journal.map(j => j.STATUS_DESCRIPTION).join(', ')}"`;
-                        continue
+                        continue;
                     }
                     o.completed = true;
                     o.description = `успешно!`;
@@ -362,13 +392,10 @@ router.post(
                                     insert into JOURNALS (ID_ORDER, ID_JOURNAL_NAMES, NOTE, TS, TRANSFER_DATE)
                                     values (${order.ID}, ${journal[0].ID_JOURNAL_NAME}, ${o.comment ? '\'' + o.comment + '\'' : null}, 
                                         '${format(new Date(), 'DD.MM.YYYY HH:mm:ss')}', '${format(other.date, 'DD.MM.YYYY HH:mm:ss')}') returning ID into :ID;
-
                                     insert into JOURNAL_TRANS (ID_EMPLOYEE, ID_SECTOR, ID_JOURNAL, MODIFER)
                                     values (${transfer.ID_EMPLOYEE}, ${transfer.ID_SECTOR}, :ID, -1);
-
                                     insert into JOURNAL_TRANS (ID_EMPLOYEE, ID_SECTOR, ID_JOURNAL, MODIFER)
                                     values (${accepted.ID_EMPLOYEE}, ${accepted.ID_SECTOR}, :ID, 1);
-
                                     insert into cost_of_work (id_journal, id_work_price, price)
                                     select :ID as id_journal, p.id as id_price, p.price from work_prices p
                                     where p.id_sector = ${transfer.ID_SECTOR};
@@ -383,11 +410,12 @@ router.post(
                                 console.log('Transaction error', err);
                                 return;
                             }
-                            const idJournal = result;
                             const newStatus = await getStatusNumOldToIdStatusOld(journal[0].ID_STATUS_AFTER);
                             if (newStatus) {
                                 //Есди назначен новый статус, выполняем запрос на обновление статуса.
-                                trans.query(`update ORDERS O set O.ORDER_STATUS = ${newStatus} where O.ID = ${order.ID}`, async (err, result) => {
+                                trans.query(
+                                    `update ORDERS O set O.ORDER_STATUS = ${newStatus} where O.ID = ${order.ID}`, 
+                                    async (err, result) => {
                                         if (err) {
                                             //если ошибка, откатываем транзакцию.
                                             trans.rollback();
@@ -402,7 +430,7 @@ router.post(
                                                 o.completed = false;
                                                 o.description = `Ошибка транзакции.`;
                                                 trans.rollback();
-                                            } 
+                                            }
                                         });
                                     }
                                 )

@@ -43,7 +43,7 @@ router.post(
                 password, 
                 departament: 'Офис', 
                 status: 1, 
-                permissionGroup: 1,
+                permissionGroupId: 1,
                 firstName,
                 lastName,
                 middleName
@@ -98,8 +98,9 @@ router.post(
                 settings.secretKey,
                 {expiresIn: '8h'}
             )
-            console.log(token)
+            //console.log(token)
             user.setToken(token);
+            user.permissionLoad();
             return res.status(200).json({token, userId: user.id});
         } catch (error) {
             res.status(500).json({errors: [error.message],  message: 'Ошибка обработки post запроса - Вход в систему.'});

@@ -1,6 +1,93 @@
 const db = require('../dataBase');
 const {format} = require('date-format-parse');
 
+
+const deffinePermission = async (db) => {
+    const permissionGroup = [
+        {id: 1, name: 'Гость'},
+        {id: 2, name: 'Менеджер'},
+        {id: 3, name: 'Админ'},
+        {id: 4, name: 'Бухгалтер'},
+        {id: 5, name: 'Сборка'},
+    ]
+    const permissions = [
+        {id: 9, name: 'Journals [get-journals] get', description: ''},
+        {id: 10, name: 'Journals [adopted] get', description: ''},
+        {id: 11, name: 'Journals [id] get', description: ''},
+    ]
+    const permissionList = [
+        {
+            permissionGroupId: 4, 
+            permissionId: 9,
+            status: 1,
+            data: [
+                {name: 'Journal Id', data: 'all'}
+            ]
+        },
+        {
+            permissionGroupId: 4, 
+            permissionId: 10,
+            status: 1,
+            data: [
+                {name: 'Journal Id', data: 'all'}
+            ]
+        },
+        {
+            permissionGroupId: 4, 
+            permissionId: 11,
+            status: 1,
+            data: [
+                {name: 'Journal Id', data: 'all'}
+            ]
+        },
+         {
+            permissionGroupId: 5, 
+            permissionId: 9,
+            status: 1,
+            data: [
+                {name: 'Journal Id', data: '1'}
+            ]
+        },
+        {
+            permissionGroupId: 5, 
+            permissionId: 10,
+            status: 1,
+            data: [
+                {name: 'Journal Id', data: '1'}
+            ]
+        },
+        {
+            permissionGroupId: 5, 
+            permissionId: 11,
+            status: 1,
+            data: [
+                {name: 'Journal Id', data: '1'}
+            ]
+        }
+    ]
+    // Запись в базу
+    try {
+        for (const per of permissionList) {
+        const query = `
+            insert into PERMISSION_LIST (ID_PERMISSION_GROUP, ID_PERMISSION, STATUS)
+            values (${per.permissionGroupId}, ${per.permissionId}, ${per.status})
+            returning ID`
+        const {ID} = await db.executeRequest(query);
+        console.log(ID);
+        for (const data of per.data) {
+            await db.executeRequest(`
+                insert into PERMISSION_DATA (ID_PERMISSION_LIST, NAME, DATA)
+                values (${ID}, '${data.name}', '${data.data}')  
+            `);
+        }
+    }
+    } catch (error) {
+        console.log(error);
+    }
+}
+
+//deffinePermission(db);
+
 const fun = async (db) => {
     let query = `select T.ID from salary_transaction t where t.transaction_completed = 1 and t.id > 776`
     const transactions = await db.executeRequest(query);
@@ -43,4 +130,5 @@ const fun = async (db) => {
     }
 }
 
-fun(db);
+
+//fun(db);
