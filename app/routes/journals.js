@@ -10,14 +10,8 @@ const jfunction                 = require('../systems/virtualJournalsFun');
 
 // /api/journals/
 
-const journals = [
-    {id: 1, name: 'Журнал сборки'},
-    {id: 2, name: 'Журнал шлифовки'},
-    {id: 3, name: 'Журнал Лакировки'},
-    {id: 4, name: 'Журнал Упаковки'}
-]
-
 const router = Router();
+
 // /api/journals/get-journals
 router.get(
     '/get-journals', 
@@ -32,13 +26,33 @@ router.get(
                 // Проверка прав на получение журналов
                 const journals = await jfunction.permissionSet(user);
                 if (journals.length == 0) return res.status(500).json({errors:['Список журналов пуст.'], message: defaultError})
-                return res.json({journals});
+                return res.json({journals: journals.filter(j => j.id != 5)}); // Удаляем из списка журнал бухгалтера
             });
         } catch (error) {
             return res.status(500).json({errors: [error.message], message: defaultError});
         }
     }
 )
+// /api/journals/set-comment
+router.post
+(
+    '/set-comment',
+    async (req, res) => {
+        try {
+            const token = req.get('Authorization');
+            try {decoded = jwt.verify(token, settings.secretKey);}
+            catch (error) {return res.status(500).json({errors: [error.message], message: 'Ошибка авторизации.'})}
+            const user = await users.getUserToID(decoded.userId);
+
+            const {sectors} = req.body;
+
+        } catch (error) {
+            res.status(500).json({errors:[error.message], message: 'Ошибка добавления комментария.'})
+        }
+    }
+);
+
+
 // /api/journals/adopted
 router.get (
     '/adopted/:id',
@@ -46,17 +60,15 @@ router.get (
         const defaultError = 'Ошибка получения принятых заказов';
         const permissionName = 'Journals [adopted] get';
         try {
-            
             const options   = {...atOrderQuery.getdefaultOptions('get_adopted')};
             const limit     = req.query._limit;
             const page      = req.query._page;
             const sort      = req.query._sort;
-            const find      =  req.params.id;
+            const find      = req.params.id;
             const d1        = req.query._d1; 
             const d2        = req.query._d2;
 
-            const filter    = req.query._filter;
-
+            const filter        = req.query._filter;
             const dateFirst     = d1 ? d1.toDate("dd/mm/yyyy") : undefined;
             const dateSecond    = d2 ? d2.toDate("dd/mm/yyyy") : undefined;
        
@@ -74,13 +86,13 @@ router.get (
 
             // Проверка прав
             const journals = await jfunction.permissionSet(user);
-            const allowed = journals.find(j => j.id == find);
-            if(!allowed) return res.status(500)
+            const journal = journals.find(j => j.id == find);
+            if(!journal) return res.status(500)
                 .json({errors: ['У тебя нет прав на получение данных этого журнала. Обратись а администатору.'], message: defaultError});
             // Конец проверки прав.
 
             if (find && find > 0) {
-                options.$where =  `${options.$where} and J.ID_JOURNAL_NAMES = ${find}`;
+                options.$where =  `${options.$where} and J.ID_JOURNAL_NAMES in (${journal.j.join(', ')})`;
             }
 
             if (dateFirst) options.$where =  `${options.$where} and CAST(J.TS as date) >= '${format(dateFirst, 'DD.MM.YYYY')}'`;
@@ -114,7 +126,6 @@ router.get (
     }
 );
 
-// /api/journals/:id
 router.get(
     '/:id',
     async (req, res) => {
@@ -133,14 +144,25 @@ router.get(
                         .json({errors: ['У тебя нет прав на получение данного журнала. Обратись а администатору.'], message: defaultError});
                 // Проверка прав завершена
                 let journal;
+                
                 switch (parseInt(id)) {
                     case 1:
-                        journal = await jfunction.journalSborka();
+                        journal = await jfunction.getJournalToId(id);
+                        break;
+                    case 2:
+                        journal = await jfunction.getJournalToId(id);
+                        break;
+                    case 3:
+                        journal = await jfunction.getJournalToId(id);
+                        break;
+                    case 4:
+                        journal = await jfunction.getJournalToId(id);
                         break;
                     default:
                         break;
                 }
                 if (!journal) return res.status(500).json({errors: ['Такой журнал не существует.'], message: defaultError});
+                //if (!journal) return res.json({arr:[]});
                 return res.json({journal});
             });
 

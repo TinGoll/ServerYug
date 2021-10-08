@@ -1,11 +1,11 @@
-const { User } = require("../entities");
-const db = require('../dataBase');
-let userList = [];
+const { User }  = require("../entities");
+const db        = require('../dataBase');
+let userList    = [];
 
 const getUser = async (userName) => {
     const condidate = userList.find(item => item.userName.toUpperCase() == userName.toUpperCase());
     if (condidate) return condidate;
-    const res = await db.executeRequest(`select E.ID, E.MGMT_PASS, E.NAME, E.DEPARTMENT, E.STATUS, E.LOCATION, PERMISSION_GROUP_ID
+    const res = await db.executeRequest(`select E.ID, E.MGMT_PASS, E.NAME, E.DEPARTMENT, E.ID_SECTOR, E.STATUS, E.LOCATION, PERMISSION_GROUP_ID
                                                     from EMPLOYERS E where UPPER(E.NAME) = '${userName.toUpperCase()}'`);
     if (!res || res.length == 0) return null;                                                
     const [item] = res;                               
@@ -14,6 +14,7 @@ const getUser = async (userName) => {
         password: item.MGMT_PASS,
         userName: item.NAME,
         departament: item.DEPARTMENT,
+        sectorId: item.ID_SECTOR,
         status: item.STATUS,
         location: item.LOCATION,
         permissionGroupId: item.PERMISSION_GROUP_ID
@@ -26,7 +27,7 @@ const getUserToID = async (id) => {
     try {
         const condidate = userList.find(item => item.id === id);
         if (condidate) return condidate;
-        const [item] = await db.executeRequest(`select E.ID, E.MGMT_PASS, E.NAME, E.DEPARTMENT, E.STATUS, E.LOCATION, PERMISSION_GROUP_ID
+        const [item] = await db.executeRequest(`select E.ID, E.MGMT_PASS, E.NAME, E.DEPARTMENT, E.ID_SECTOR, E.STATUS, E.LOCATION, PERMISSION_GROUP_ID
                                                         from EMPLOYERS E where E.id = ${id}`);
         if (!item)  return null;                                                                
         const user = new User({
@@ -34,6 +35,7 @@ const getUserToID = async (id) => {
             password: item.MGMT_PASS,
             userName: item.NAME,
             departament: item.DEPARTMENT,
+            sectorId: item.ID_SECTOR,
             status: item.STATUS,
             location: item.LOCATION,
             permissionGroupId: item.PERMISSION_GROUP_ID

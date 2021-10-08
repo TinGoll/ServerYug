@@ -3,12 +3,13 @@ const Entity = require('./Entity');
 
 module.exports = class User extends Entity {
     static type = 'USER';
-
+    id;
     firstName;
     lastName;
     middleName;
     userName;
     password;
+    sectorId;
     departament;
     status;
     location;
@@ -22,16 +23,19 @@ module.exports = class User extends Entity {
         this.userName = options.userName;
         this.password = options.password;
         this.departament = options.departament;
+        this.sectorId = options.sectorId;
         this.status = options.status;
         this.location = options.location;
         this.permissionGroupId = options.permissionGroupId;
         this.firstName = options.firstName;
         this.lastName = options.lastName;
         this.middleName = options.middleName;
+        this.id = options.id;
     }
 
     setPasword (password) {this.password = password;}
     getPasword () {return this.password;}
+    getPermission () {return this.permissionList;}
 
     setToken (token) {this.token = token;} 
     getToken () {return this.token;}
@@ -39,15 +43,22 @@ module.exports = class User extends Entity {
         if (!this.permissionGroupId) return 1;
         return this.permissionGroupId;
     }
+    async permissionGroupIdreload () {
+        const [res] = await db.executeRequest(`select E.PERMISSION_GROUP_ID from EMPLOYERS E where E.ID = ${this.id}`);
+        this.permissionGroupId = res.PERMISSION_GROUP_ID;
+    }
     async permissionLoad () {
+        await this.permissionGroupIdreload();
         const groupId = this.getpermissionGroupId();
         const [group] = await db.executeRequest(`select G.OWNER from PERMISSIONS_GROUP G where G.ID = ${groupId}`); 
         this.isOwner = !!group.OWNER;
         if (this.isOwner) return;
-        this.permissionList = await db.executeRequest(`select L.ID, L.ID_PERMISSION, P.NAME, P.DESCRIPTIONS
+
+        this.permissionList = await db.executeRequest(`select L.ID, L.ID_PERMISSION, P.NAME, P.DESCRIPTIONS, P.CATEGORY
                                                             from PERMISSION_LIST L
                                                             left join PERMISSIONS P on (L.ID_PERMISSION = P.ID)
                                                             where L.ID_PERMISSION_GROUP = ${groupId}`);
+
         this.permissionListData = await db.executeRequest(`select D.ID, D.ID_PERMISSION_LIST, D.NAME, D.DATA
                                                             from PERMISSION_DATA D
                                                             left join PERMISSION_LIST L on (D.ID_PERMISSION_LIST = L.ID)
@@ -59,10 +70,10 @@ module.exports = class User extends Entity {
             if (this.isOwner) return true;
             for (const permission of this.permissionList) 
                 if (String(permission.NAME).toUpperCase() == String(name).toUpperCase()) return true; 
-            return false;  
+            return false;
         } catch (error) {
             console.log(error);
-            return false
+            return false;
         }
     }
     async save () {

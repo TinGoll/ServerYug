@@ -98,10 +98,18 @@ router.post(
                 settings.secretKey,
                 {expiresIn: '8h'}
             )
-            //console.log(token)
-            user.setToken(token);
-            user.permissionLoad();
-            return res.status(200).json({token, userId: user.id, user: {userName: user.userName, firstName: user.firstName, lastName: user.lastName, middleName: user.middleName}});
+            console.log(token)
+            //user.setToken(token);
+            await user.permissionLoad();
+            return res.status(200).json({token, userId: user.id, 
+                user: {
+                    userName: user.userName, 
+                    firstName: user.firstName, 
+                    lastName: user.lastName, 
+                    middleName: user.middleName, 
+                    isOwner: user.isOwner, 
+                    permissionList: user.getPermission()
+                }});
         } catch (error) {
             res.status(500).json({errors: [error.message],  message: 'Ошибка обработки post запроса - Вход в систему.'});
             console.log(error);
