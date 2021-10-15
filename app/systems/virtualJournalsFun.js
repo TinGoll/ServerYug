@@ -27,14 +27,18 @@ const permissions = [
 
 //Получение списка прав
 const permissionSet = async (user) => {
-    const set = new Set();
-    for (let i = 0; i < permissions.length; i++) {
-        if (await user.permissionCompare(permissions[i].name)) {
-            for (const j of permissions[i].data) 
-                    if (!set.has(j)) set.add(j);
+    try {
+        const set = new Set();
+        for (let i = 0; i < permissions.length; i++) {
+            if (await user.permissionCompare(permissions[i].name)) {
+                for (const j of permissions[i].data) 
+                        if (!set.has(j)) set.add(j);
+            }
         }
-    }
-    return [...set];
+        return [...set];
+    } catch (error) {
+        return [];
+    } 
 }
 //Функции журналов
 

@@ -10,23 +10,26 @@ const pool               = firebird.pool(5, options);
 
 const __dirn             = path.resolve();
 const _                  = require('lodash');
-
+const jwt                = require('jsonwebtoken');
 const jfunction          = require('../systems/virtualJournalsFun');
-const { query }          = require('express-validator');
+
+const { users }          = require('../systems');
 
 const settings           = require('../settings');
 
 // Получение всех заказов, лимит по умолчанию - 100
 const getAllOrders = async (req, res) => {
     try {
-        // Получение пользователя.
-        let decoded;
-        const token = req.get('Authorization');
-        try {decoded = jwt.verify(token, settings.secretKey);} 
-        catch (error) {return res.status(500).json({errors: [error.message], message: 'Некорректный токен'})}
-        const user = await users.getUserToID(decoded.userId);
 
-        if (!user.permissionCompare('Orders [orders] get orders all')) 
+       // Проверка токена, получение пользователя.
+            let decoded;
+            const token = req.get('Authorization');
+            try {decoded = jwt.verify(token, settings.secretKey);} 
+            catch (error) {return res.status(500).json({errors: [error.message], message: 'Некорректный токен'})}
+            const user = await users.getUserToID(decoded.userId);
+        // Конец проверки токена.
+
+        if (!await user.permissionCompare('Orders [orders] get orders all')) 
             return res.status(500).json({errors: ['Не хватает прав, на получение данных журнала заказов.'], message: 'Нет прав.'})
 
         let options     = {...ordersQuery.getdefaultOptions('get_orders')};
@@ -43,15 +46,17 @@ const getAllOrders = async (req, res) => {
         const result = await db.executeRequest(ordersQuery.get('get_orders', options));
 
         // Права пользователей.
-        const isViewCity            = user.permissionCompare('Orders [orders] get field City');
-        const isViewCost            = user.permissionCompare('Orders [orders] get field Cost');
-        const isViewTotalCost       = user.permissionCompare('Orders [orders] get field Cost');
-        const isViewPay             = user.permissionCompare('Orders [orders] get field Pay');
-        const isViewDebt            = user.permissionCompare('Orders [orders] get field Debt');
 
-        const isViewDateFirstStage  = user.permissionCompare('Orders [orders] get field DateFirstStage');
-        const isViewDateSave        = user.permissionCompare('Orders [orders] get field DateSave');
-        const isViewDatePlanPack    = user.permissionCompare('Orders [orders] get field DatePlanPack');
+
+        const isViewCity            = await user.permissionCompare('Orders [orders] get field City');
+        const isViewCost            = await user.permissionCompare('Orders [orders] get field Cost');
+        const isViewTotalCost       = await user.permissionCompare('Orders [orders] get field Cost');
+        const isViewPay             = await user.permissionCompare('Orders [orders] get field Pay');
+        const isViewDebt            = await user.permissionCompare('Orders [orders] get field Debt');
+
+        const isViewDateFirstStage  = await user.permissionCompare('Orders [orders] get field DateFirstStage');
+        const isViewDateSave        = await user.permissionCompare('Orders [orders] get field DateSave');
+        const isViewDatePlanPack    = await user.permissionCompare('Orders [orders] get field DatePlanPack');
 
         const orders = result.map(o => {
             let order = 
