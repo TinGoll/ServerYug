@@ -129,7 +129,7 @@ const getSectors = async () => {
 const getJournalToId = async (id) => {
     try {
         const query = `
-        SELECT  O.ID, O.ITM_ORDERNUM, S.ID AS SECTOR_ID, S.NAME AS SECTOR,
+        SELECT DISTINCT O.ID, O.ITM_ORDERNUM, S.ID AS SECTOR_ID, S.NAME AS SECTOR, P.DATE_SECTOR,
                 P.DATE3 AS DATE_PLAN, STATUS.ID AS STATUS_ID,
                 STATUS.STATUS_NUM, STATUS.STATUS_DESCRIPTION,
                 O.ORDER_GENERALSQ, O.ORDER_FASADSQ,
@@ -165,13 +165,14 @@ const getJournalToId = async (id) => {
             const orders = _.uniqWith(res.filter(o => o.SECTOR_ID == sector.id)
                 .map(o => {
                     return {
-                        id:             o.ID, 
-                        itmOrderNum:    o.ITM_ORDERNUM,
-                        sectorId:       o.SECTOR_ID, 
-                        sectorName:     o.SECTOR,
-                        datePlan:       o.DATE_PLAN, 
-                        fasadSquare:    o.ORDER_FASADSQ, 
-                        generalSquare:  o.ORDER_GENERALSQ,
+                        id:                 o.ID, 
+                        itmOrderNum:        o.ITM_ORDERNUM,
+                        sectorId:           o.SECTOR_ID, 
+                        sectorName:         o.SECTOR,
+                        nameSectorInOrder:  o.DATE_SECTOR,
+                        datePlan:           o.DATE_PLAN, 
+                        fasadSquare:        o.ORDER_FASADSQ, 
+                        generalSquare:      o.ORDER_GENERALSQ,
                         data:           {
                             comments: []
                         }
@@ -183,12 +184,9 @@ const getJournalToId = async (id) => {
                         .map(async (o) => {
                             
                             const listSectors = await getSectors();
-                     
-
                             const user = await users.getUserToID(o.DATA_EMPLOYEE_ID);
                             let sector = listSectors.find(s => s.id == o.DATA_SECTOR_ID);
                             if (!sector) sector = listSectors.find(s => s.id == user.sectorId);
-                           
                             return {id: o.DATA_ID, sector: sector?.name, userId: o.DATA_EMPLOYEE_ID, userName: user?.userName, text: o.DATA_VALUE}
                         }));
                 }
@@ -229,6 +227,8 @@ module.exports = {
     isWorkPlan,
     permissionSet,
     getJournalToId,
+    getSectors,
+    getStatuses,
     journals,
     permissions
 }

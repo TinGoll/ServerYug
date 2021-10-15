@@ -89,7 +89,7 @@ const deffinePermission = async (db) => {
 //deffinePermission(db);
 
 const fun = async (db) => {
-    let query = `select T.ID from salary_transaction t where t.transaction_completed = 1 and t.id > 776`
+    let query = `select T.ID from salary_transaction t where t.transaction_completed = 1 and t.id > 832`
     const transactions = await db.executeRequest(query);
 
     for (const transaction of transactions) {
@@ -98,7 +98,10 @@ const fun = async (db) => {
                         from JOURNAL_SBORKA S
                         where S.ID_SALARY_TRANSACTION = ${transaction.ID}`;
         const orders = await db.executeRequest(query);
+        let count = 0;
         for (const order of orders) {
+            count ++;
+            console.log(`${count} из ${orders.length}`);
             let query = `
                 execute block
                 returns (ID integer)

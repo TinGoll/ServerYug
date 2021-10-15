@@ -1,27 +1,10 @@
 
-const db                        = require('../dataBase');
+let queryStatuses = [1, 2, 3, 5];
 
-const jfunction                 = require('../systems/virtualJournalsFun');
-
-/*
-const _ = require ('lodash');
-var array = [
-   {name: 'Коля', t: 10},
-   {name: 'Петя', t: 10},
-   {name: 'Коля', t: 11},
-   {name: 'Коля', t: 10},
-]
-
-const arr = _.uniqWith(array, _.isEqual);
-
-
-
-*/
-const journal = jfunction.getJournalToId(1).then(r => {
-   console.log(r);
-});
-
-
-//console.log(arr);
-
-
+let TempArr = [];
+let txt = ``;
+if (queryStatuses.length) {
+        queryStatuses.forEach(s => {TempArr.push(`LIST_STATUSES.ID = ${s}`);});
+        txt += `(${TempArr.join(' OR\n')})`
+    }
+console.log(txt);

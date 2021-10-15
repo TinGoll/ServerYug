@@ -9,6 +9,7 @@ const atOrderQuery = require('../query/atOrder');
 const { users }    = require('../systems')
 const {check, validationResult} = require('express-validator');
 const { userList } = require('../systems/users');
+const jfunction    = require('../systems/virtualJournalsFun');
 
 const router = Router();
 
@@ -98,16 +99,19 @@ router.post(
                 settings.secretKey,
                 {expiresIn: '8h'}
             )
-            console.log(token)
+            //console.log(token)
             //user.setToken(token);
             await user.permissionLoad();
+            const sectorName = (await jfunction.getSectors()).find(s => s.id == user.sectorId)?.name
             return res.status(200).json({token, userId: user.id, 
                 user: {
-                    userName: user.userName, 
-                    firstName: user.firstName, 
-                    lastName: user.lastName, 
-                    middleName: user.middleName, 
-                    isOwner: user.isOwner, 
+                    userName:       user.userName, 
+                    firstName:      user.firstName, 
+                    lastName:       user.lastName, 
+                    middleName:     user.middleName, 
+                    isOwner:        user.isOwner,
+                    sectorId:       user.sectorId,
+                    sectorName,
                     permissionList: user.getPermission()
                 }});
         } catch (error) {

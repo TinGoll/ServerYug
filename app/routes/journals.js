@@ -43,7 +43,7 @@ router.post
             try {decoded = jwt.verify(token, settings.secretKey);}
             catch (error) {return res.status(500).json({errors: [error.message], message: 'Ошибка авторизации.'})}
             const user = await users.getUserToID(decoded.userId);
-
+            console.log(req.body);
             const {sectors} = req.body;
 
         } catch (error) {
@@ -51,7 +51,6 @@ router.post
         }
     }
 );
-
 
 // /api/journals/adopted
 router.get (
@@ -107,7 +106,7 @@ router.get (
                         O.FASAD_MODEL || '_' ||
                         O.TEXTURE || '_' || O.COLOR || '_' ||
                         O.PRIMECH || '_' || O.ORDER_TYPE || '_' ||
-                        S.STATUS_DESCRIPTION || '_' || SECTOR.NAME 
+                        S.STATUS_DESCRIPTION || '_' || SECTOR.NAME
                         || '_' || C.CITY)
                     like '%${f.toUpperCase()}%'`;
                 }

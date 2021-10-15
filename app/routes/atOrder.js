@@ -241,12 +241,14 @@ router.get(
                 sector.otherTransactoins = {
                     users: [...users.map(u => u.NAME)],
                     values: [
-                        {userName: '', description: 'Налог', amount: 0, modifer: -1},
-                        {userName: '', description: 'Штраф', amount: 0, modifer: -1},
-                        {userName: '', description: 'Возврат долга', amount: 0, modifer: -1},
-                        {userName: '', description: 'Больничный', amount: 0, modifer: -1},
-                        {userName: '', description: 'Отпускные', amount: 0, modifer: 1},
-                        {userName: '', description: 'Аванс', amount: 0, modifer: 1}
+                        {userName: '', description: 'Налог', amount: 0, modifer: -1, comment: ''},
+                        {userName: '', description: 'Штраф', amount: 0, modifer: -1, comment: ''},
+                        {userName: '', description: 'Другое (Удержание)', amount: 0, modifer: -1, comment: ''},
+                        {userName: '', description: 'Возврат долга', amount: 0, modifer: -1, comment: ''},
+                        {userName: '', description: 'Больничный', amount: 0, modifer: 1, comment: ''},
+                        {userName: '', description: 'Отпускные', amount: 0, modifer: 1, comment: ''},
+                        {userName: '', description: 'Аванс', amount: 0, modifer: 1, comment: ''},
+                        {userName: '', description: 'Другое (Надбавки)', amount: 0, modifer: 1, comment: ''}
                     ],
                     data: []
                 }
@@ -267,13 +269,16 @@ router.patch(
     async (req, res) => {
         let decoded;
         const {sectors} = req.body;
+
+
+
+
         if (!sectors || sectors.length == 0) return res.status(500).json({errors: ['Список пуст.'], message: 'Нет данных.'})
         const token = req.get('Authorization');
         try {decoded = jwt.verify(token, settings.secretKey);} 
         catch (error) {return res.status(500).json({errors: [error.message], message: 'Некорректный токен'})}
         const user = await users.getUserToID(decoded.userId);
         try {
-            
             const transaction = await db.executeRequest(`
                                 insert into SALARY_TRANSACTION (
                                 ID_USER, DATE_ADDED, SETTLEMENT_DATE, NAME, 
@@ -292,11 +297,13 @@ router.patch(
                     if (order.isDeleted) continue;
                     for (const work of order.works) {
                         if (work.isDeleted) {
-                            if (work.isEdited) await db.executeRequest(`delete from cost_of_work w where w.id = ${work.workOfCostId}`);
+                            await db.executeRequest(`delete from cost_of_work w where w.id = ${work.workOfCostId}`);
                             continue;
                         }else if (work.workOfCostId) {
-                            await db.executeRequest(`update COST_OF_WORK W set W.PRICE = ${work.price} where W.ID = ${work.workOfCostId}`);
-                            console.log(`Обновили работы (${work.work}) ID ${work.workOfCostId}`);
+                            if (work.isEdited) {
+                                await db.executeRequest(`update COST_OF_WORK W set W.PRICE = ${work.price} where W.ID = ${work.workOfCostId}`);
+                                console.log(`Обновили работы (${work.work}) ID ${work.workOfCostId}`);
+                            } 
                         }else {
                             await db.executeRequest(`insert into COST_OF_WORK (ID_JOURNAL, ID_WORK_PRICE, PRICE) values (${order.idJournal}, ${work.workId}, ${work.price})`);
                         }
@@ -311,19 +318,54 @@ router.patch(
                  // Доп списания / начисления
                 if (sector.otherTransactoins.data.length > 0) {
                     for (const otherTransaction of sector.otherTransactoins.data) {
-                        if (!otherTransaction.name) continue;
-                        if (!otherTransaction.value && otherTransaction.value > 0) continue;
+                        //if (!otherTransaction.userName) continue;
+                        if (!otherTransaction.amount) continue;
                         if (!otherTransaction.modifer == 1 || !otherTransaction.modifer == -1) continue;
+
+                        console.log(otherTransaction);
+
                         await db.executeRequest(`
-                            insert into OTHER_TRANSACTIONS (ID_TRANSACTION, ID_SECTOR, NAME, DESCRIPTION, AMOUNT, MODIFER) 
+                            insert into OTHER_TRANSACTIONS (ID_TRANSACTION, ID_SECTOR, NAME, DESCRIPTION, AMOUNT, MODIFER, TRANS_COMMENT) 
                             values (${transaction.ID}, ${sector.id}, '${otherTransaction.userName}', 
-                                '${otherTransaction.description}', ${Math.abs(otherTransaction.amount)}, ${otherTransaction.modifer})
+                                '${otherTransaction.description}', ${Math.abs(otherTransaction.amount)}, 
+                                ${otherTransaction.modifer}, ${otherTransaction.comment ? '\'' + otherTransaction.comment + '\'' : null})
                         `);
+
+
                     }
                 }
             }
+            // Изменить на более оптимальный
+            const [trSum] = await db.executeRequest(`
+                select cast((sum(coalesce(O.ORDER_FASADSQ, 0) * W.PRICE) +
+                    (select coalesce(sum(T2.AMOUNT * T2.modifer), 0) as OTHER_AMOUNT
+                    from OTHER_TRANSACTIONS T2
+                    where T2.ID_TRANSACTION = T.ID)) as decimal(8,2)) as MONEY
+                from SALARY_TRANS_EL E
+                left join JOURNALS J on (E.ID_JOURNAL = J.ID)
+                left join SALARY_TRANSACTION T on (E.ID_TRANSACTION = T.ID)
+                left join COST_OF_WORK W on (W.ID_JOURNAL = J.ID)
+                left join ORDERS O on (J.ID_ORDER = O.ID)
+                where T.id = ${transaction.ID}
+                group by T.ID, T.DATE_ADDED
+            `);
+
+            const cashlow = await db.executeRequest(`
+                insert into JOURNAL_CASHFLOW (FACT_DATE, CATEGORY, PURPOSE, MONEYSUM, comment, TS)
+                values (CURRENT_DATE, 'Зарплата сборка', 'Цветков', ${trSum.MONEY}, 'Внесено автоматически, формирование зарплаты сборка', CURRENT_TIMESTAMP)
+                returning ID
+            `);
+      
             // Закрытие Транзакции
-            await db.executeRequest(`update SALARY_TRANSACTION T set T.TRANSACTION_COMPLETED = 1 where T.ID = ${transaction.ID}`);
+            await db.executeRequest(`
+               UPDATE SALARY_TRANSACTION T
+                SET
+                T.TRANSACTION_COMPLETED = 1,
+                T.TRANSACTION_AMOUNT = ${trSum.MONEY},
+                T.IS_JOURNAL_ENTRY = 1,
+                T.ID_JOURNAL_CASH = ${cashlow.ID}
+                WHERE T.ID = ${transaction.ID}
+            `);
             //Тут добавление в журнал расходов, сделать после запуска.
             return res.status(201).json({transaction});
         } catch (error) {
