@@ -20,7 +20,6 @@ const settings           = require('../settings');
 // Получение всех заказов, лимит по умолчанию - 100
 const getAllOrders = async (req, res) => {
     try {
-
        // Проверка токена, получение пользователя.
             let decoded;
             const token = req.get('Authorization');
@@ -28,9 +27,9 @@ const getAllOrders = async (req, res) => {
             catch (error) {return res.status(500).json({errors: [error.message], message: 'Некорректный токен'})}
             const user = await users.getUserToID(decoded.userId);
         // Конец проверки токена.
-
-        if (!await user.permissionCompare('Orders [orders] get orders all')) 
-            return res.status(500).json({errors: ['Не хватает прав, на получение данных журнала заказов.'], message: 'Нет прав.'})
+        const isGetOrdersAllAllowed = await user.permissionCompare('Orders [orders] get orders all')
+        if (!isGetOrdersAllAllowed) 
+                            return res.status(500).json({errors: ['Не хватает прав, на получение данных журнала заказов.'], message: 'Нет прав.'})
 
         let options     = {...ordersQuery.getdefaultOptions('get_orders')};
         const page      = req.query._page;
@@ -42,7 +41,7 @@ const getAllOrders = async (req, res) => {
         if (page && !isNaN(page))       options.$skip   = (page * options.$first ) - options.$first;
         if (sort)                       options.$sort   = sort; 
         if (filter)                     options.$where  = await finderEngine (filter);
-
+        
         const result = await db.executeRequest(ordersQuery.get('get_orders', options));
 
         // Права пользователей.
@@ -75,7 +74,7 @@ const getAllOrders = async (req, res) => {
                 color:                  o.COLOR,
                 colorType:              o.COLOR_TYPE,
                 square:                 o.ORDER_GENERALSQ,
-                dataFactOrderOut:       o.FACT_DATE_ORDER_OUT,
+                dateFactOrderOut:       o.FACT_DATE_ORDER_OUT,
                 status:                 o.STATUS_DESCRIPTION 
             }
             // Отображение согласно прав.
@@ -176,7 +175,7 @@ const finderEngine = async txt => {
                             FROM ORDERS_DATE_PLAN P
                             WHERE
                             P.ORDER_ID = O.ID AND
-                            (LIST_STATUSES.STATUS_NUM > 5 AND LIST_STATUSES.STATUS_NUM < 7) AND
+                            (LIST_STATUSES.STATUS_NUM >= 5 AND LIST_STATUSES.STATUS_NUM < 7) AND
                             P.DATE3 < CURRENT_DATE AND
                             UPPER(P.DATE_DESCRIPTION) = UPPER('УПАКОВКА'))`
                         );
@@ -233,106 +232,236 @@ const finderEngine = async txt => {
 
 // Тестовая отправка картинки
 const getImageTest = (req, res) => {
-    const files = fs.readdirSync(__dirn + '/app/assets/images/');
-    const item = files[Math.floor(Math.random()*files.length)];
-    res.sendFile(__dirn + '/app/assets/images/' + item);
+    try {
+        const files = fs.readdirSync(__dirn + '/app/assets/images/');
+        const item = files[Math.floor(Math.random()*files.length)];
+        res.sendFile(__dirn + '/app/assets/images/' + item);
+    } catch (error) {
+        console.log(error);
+    } 
 }
 
 // Отправка картинки образца
-const getSampleForOrder = (req, res) => {
-    //Получаем фото образца из папки в заказах
-    const ipImageServer = '192.168.2.101';
-    const dirSample = 'Образец';
-    let id =  req.params.id;
-    let options = {...ordersQuery.getdefaultOptions('get_order_firstsave_date')};
-    if (id > 0) options.$where = 'ID = ' + id;
-    else return res.sendFile(getdefaultSample());
-    let query = ordersQuery.get('get_order_firstsave_date', options);
-        pool.get((err, db) => {
-            if (err) return res.sendFile(getdefaultSample());
-            db.query(query, (e, result) => {
-                if (e) return res.sendFile(getdefaultSample());
-                db.detach();
-                const [itemRes] = result;
-                if (!itemRes) return res.sendFile(getdefaultSample());
-                dateTxt = itemRes.FACT_DATE_FIRSTSAVE.substr(0, 10);
-                let parts = dateTxt.replace(/\./g, '-').replace(/\,/g, '-').replace(/\//g, '-').split('-');
-                if (!parts[2]) parts.push(new Date().getFullYear());
-                const date = new Date((parts[2].length == 2 ? new Date().getFullYear().toString().substr(0, 2) + 
-                                                                                parts[2]: parts[2]), parts[1] - 1, parts[0]);
-                let month = date.toLocaleString('default', { month: 'long' });
-                month =  month[0].toUpperCase() + month.slice(1)
-                try {
-                    const pathSample = `//${ipImageServer}/заказы/${date.getFullYear()}/${month}/${id}/${dirSample}/`;
-                    const files = fs.readdirSync(pathSample);
-                    [sampleName]= files;
-                    if (!sampleName) return res.sendFile(getdefaultSample());
-                    return res.sendFile(pathSample + sampleName);
-                } catch (error) {return res.sendFile(getdefaultSample());}
-            });
-        });
-        pool.destroy();
+const getSampleForOrder = async (req, res) => {
+    try {
+        //Получаем фото образца из папки в заказах
+        const ipImageServer = '192.168.2.101';
+        const dirSample = 'Образец';
+        let id =  req.params.id;
+
+        let options = {...ordersQuery.getdefaultOptions('get_order_firstsave_date')};
+        if (!isNaN(id) && id > 0) options.$where = 'ID = ' + id;
+        else return res.sendFile(getdefaultSample());
+        let query = ordersQuery.get('get_order_firstsave_date', options);
+        const [itemRes] = await db.executeRequest(query);
+        if (!itemRes) return res.sendFile(getdefaultSample());
+        let dateTxt = itemRes.FACT_DATE_FIRSTSAVE.substr(0, 10);
+        let parts = dateTxt.replace(/\./g, '-').replace(/\,/g, '-').replace(/\//g, '-').split('-');
+        if (!parts[2]) parts.push(new Date().getFullYear());
+        const date = new Date((parts[2].length == 2 ? new Date().getFullYear().toString().substr(0, 2) + 
+                                                                    parts[2]: parts[2]), parts[1] - 1, parts[0]);
+        let month = date.toLocaleString('default', { month: 'long' });
+        month =  month[0].toUpperCase() + month.slice(1);
+        try {
+            const pathSample = `//${ipImageServer}/заказы/${date.getFullYear()}/${month}/${id}/${dirSample}/`;
+            const files = fs.readdirSync(pathSample);
+            [sampleName]= files;
+            if (!sampleName) return res.sendFile(getdefaultSample());
+            return res.sendFile(pathSample + sampleName);
+        } catch (error) {return res.sendFile(getdefaultSample());}
+    } catch (error) {
+        console.log(error);
+        return res.sendFile(getdefaultSample());
+    }
 }
 
-const getOneOrder =  (req, res) => {
+const orderExists = async (req, res) => {
     try {
+        let id =  req.params.id
+        const result = await db.executeRequest(`
+            SELECT O.ID, O.ITM_ORDERNUM, S.STATUS_DESCRIPTION, O.ORDER_GENERALSQ, O.ORDER_FASADSQ
+            FROM ORDERS O
+            LEFT JOIN LIST_STATUSES S ON (O.ORDER_STATUS = S.STATUS_NUM)
+            WHERE O.ID = ${id}  
+        `);
+        if (!result.length) return res.status(500).json({errors: ['Заказ не найден в базе данных.'], message: 'Заказ не найден.'});
+        const [order] = result.map(o => {
+            return {
+                id: o.ID,
+                itmOrderNum: o.ITM_ORDERNUM,
+                status: o.STATUS_DESCRIPTION,
+                id: o.ID,
+                square: o.ORDER_GENERALSQ,
+                squareFasad: o.ORDER_FASADSQ
+            }
+        });
+        return res.status(200).json({order});  
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({errors: [error.message], message: 'Ошибка запроса: orderExists'});
+    }
+}
+
+const getOneOrder = async  (req, res) => {
+    try {
+        // Проверка токена, получение пользователя.
+        let decoded;
+        const token = req.get('Authorization');
+        
+        try {decoded = jwt.verify(token, settings.secretKey);} 
+        catch (error) {
+            return res.status(500).json({errors: ['Без токена ни как...', 
+                `Проверка, на стресоустойчивость: 
+                Lorem ipsum dolor sit, amet consectetur adipisicing elit. Expedita rem, eum nisi vero magni corrupti facere assumenda similique a magnam distinctio, sunt quidem ab ad officiis architecto ut accusantium adipisci.
+                    Fuga, blanditiis. Numquam suscipit at ipsam nemo ratione dolorum dignissimos quidem recusandae reiciendis adipisci quod sit, quam itaque accusantium, dicta est quae distinctio harum? Repellendus optio quasi laudantium aperiam harum.
+                    Perferendis mollitia ad inventore odit magnam voluptatum cupiditate amet, impedit nemo tempore labore quia repellat quidem nisi, eveniet explicabo laboriosam repudiandae modi cumque alias, adipisci quibusdam. Accusamus iusto eius esse.
+                    Exercitationem consectetur incidunt corrupti facilis inventore nihil rerum porro eaque placeat, aperiam, at ducimus reprehenderit reiciendis ex rem minima nemo laudantium quas obcaecati optio dolor possimus? Deleniti ratione eos natus.
+                    Veniam consequuntur nesciunt quidem cupiditate. Harum suscipit possimus corrupti nihil consequuntur libero architecto, perspiciatis ab accusamus? Ullam ipsa incidunt, dolorum natus ut, libero minima accusantium error tempore quasi reiciendis ex.
+                    Recusandae odit molestias quo, vitae obcaecati cupiditate, labore quae natus a sed, quia facilis quos deserunt repudiandae molestiae autem laudantium ipsum. Dolorum fugit numquam nostrum est cupiditate? Aliquid, rem officia.
+                    Perferendis rerum necessitatibus at illum cumque assumenda ullam vero officia dolor nesciunt. Ab rem vero in magni libero quidem aliquam iste? Odit inventore quibusdam dolores eum voluptas porro quia quisquam.
+                    In modi possimus omnis amet dolores veritatis quasi voluptates assumenda! Tempore unde placeat possimus dolorem eveniet vitae! Sint quo tempore vitae, eius, a commodi, fugit consequatur quaerat ipsa eos nihil.
+                    Quisquam aperiam soluta asperiores porro iure dolor ad explicabo. Numquam nam recusandae, illo voluptate excepturi, necessitatibus vel commodi dolorem odit dolorum mollitia laborum veritatis laudantium. Delectus eaque architecto soluta aperiam?
+                    Ex sed a corporis itaque dignissimos totam eaque atque consequatur. Impedit officiis perspiciatis consequuntur cumque quod quos? Aspernatur aperiam, error harum facere, beatae sit quo dolorem sapiente perferendis odit suscipit!
+                    Ut quos itaque hic atque eligendi nisi repellat, porro, laborum nesciunt magnam, harum aliquid fuga commodi ducimus ullam nam provident repellendus reiciendis! Quod rerum voluptate debitis beatae quaerat in voluptas.
+                    Consequatur, placeat. Cumque officiis quo ab odit fuga consequatur earum placeat velit atque doloremque illum culpa vitae a mollitia vero ipsam, quasi recusandae quis sapiente enim eligendi dicta! Iure, molestiae!
+                    Reiciendis, quos cupiditate. Inventore repellat distinctio error dolorem dignissimos, commodi cum adipisci. Adipisci suscipit consequuntur, tempora quae debitis consectetur nam incidunt est accusamus vel blanditiis deserunt, odio dolorum labore maxime.
+                    Sunt id nisi quas quos blanditiis cum excepturi officiis distinctio aliquid minus quaerat accusamus tenetur eius, atque velit non quasi quo cupiditate commodi architecto eaque hic in accusantium. Ipsum, provident?
+                    Quam eum deserunt vero modi, quas incidunt dignissimos officiis doloremque saepe placeat reiciendis adipisci deleniti, nostrum autem aspernatur ullam aliquid repellat distinctio obcaecati iure, commodi veniam labore! Sint, corrupti enim.
+                    Optio ipsam consequatur deserunt obcaecati eaque laboriosam ullam harum! Quas, nostrum. Consectetur corporis tempora voluptate dignissimos nulla magnam ducimus mollitia, amet nesciunt ipsam facilis optio molestiae voluptatem officia! Reiciendis, autem?
+                    Modi aliquam laborum quasi ipsum recusandae dolor vel facilis quos ducimus odio, sunt delectus sapiente debitis ullam, nemo consectetur quae similique fuga. Obcaecati consequuntur est ratione odio minima porro laboriosam.
+                    Illo neque impedit possimus temporibus earum natus eveniet itaque. Ipsum cupiditate blanditiis quas eos dolor modi, mollitia maxime dicta odit explicabo dolorum neque cum nihil suscipit! Iste ipsa nihil sunt.
+                    Libero nesciunt eveniet numquam dignissimos molestias adipisci ut consequatur consequuntur iure, sapiente fugiat aliquid et maiores, ducimus culpa modi, minima vitae velit. Corrupti a vitae sunt mollitia doloremque. Consequuntur, eos.
+                    Aspernatur unde quibusdam magnam consectetur reprehenderit sit laudantium libero sed dignissimos vel commodi sapiente ipsa, qui officiis cum quia maiores numquam repellendus, non ratione quae possimus illum, neque adipisci! Est.`], message: 'Где токен, господа?'})
+            //return res.status(500).json({errors: [error.message], message: 'Некорректный токен'})
+        }
+        const user = await users.getUserToID(decoded.userId);
+        // Конец проверки токена.
+
         let id =  req.params.id
         let options = {};
         options.$where = `O.ID = ${id}`;
         let query = ordersQuery.get('get_order_header', options);
-        let order = {};
-        pool.get((err, db) => {
-            if (err) return res.status(400).json({errors: ['ok'], message: 'Ошибка подключения к базе данных.'});
-            db.query(query, (e, result) => {
-                if (e) return res.status(500).json({errors: ['ok'], message: 'Ошибка выполнения запроса.'});
-                db.detach();
-                if (!result.length) return res.status(400).json({errors: ['ok'], message: `Заказ № ${id} не найден.`});
-                order.header = result;
-                options = {};
-                options.$where = `ORDER_ID = ${id}`;
-                let query = ordersQuery.get('get_order_body', options);
-                db.query(query, (e, result) => {
-                    db.detach();
-                    result.forEach((element, index, arr) => {
-                        if (element.MEASURE_UNIT) element.MEASURE_UNIT = element.MEASURE_UNIT.replace('м2', 'м²')
-                    });
-                    order.body = result;
-                    options = {};
-                    options.$where = `ORDER_ID = ${id}`;
-                    let query = ordersQuery.get('get_order_plans', options);
-                    db.query(query, (e, result) => {
-                        db.detach();
-                        order.plans = result;
-                        return res.status(200).json({order});
-                    });
-                });
-            })
-        })
-        pool.destroy();
+        const resHeader = await db.executeRequest(query);
+        options.$where = `ORDER_ID = ${id}`;
+        query = ordersQuery.get('get_order_body', options)
+        const resBody = await db.executeRequest(query); 
+        options.$where = `ORDER_ID = ${id}`;
+        query = ordersQuery.get('get_order_plans', options);
+        const resPlans = await db.executeRequest(query);
+        if (!resHeader.length) return res.status(500).json({errors: ['Заказ не найден.'], message: 'Ошибка получения заказа'});
+
+         // Права пользователей.
+        const isViewCity            = await user.permissionCompare('Orders [orders] get field City');
+        const isViewCost            = await user.permissionCompare('Orders [orders] get field Cost');
+        const isViewPay             = await user.permissionCompare('Orders [orders] get field Pay');
+        const isViewDebt            = await user.permissionCompare('Orders [orders] get field Debt');
+
+        const isViewDateFirstStage  = await user.permissionCompare('Orders [orders] get field DateFirstStage');
+        const isViewDateSave        = await user.permissionCompare('Orders [orders] get field DateSave');
+        const isViewDatePlanPack    = await user.permissionCompare('Orders [orders] get field DatePlanPack');
+
+
+        const header            = resHeader.map(h => {
+            let header =  {
+                id: h.ID, manager: h.MANAGER, client: h.CLIENT, 
+                itmOrderNum: h.ITM_ORDERNUM, viewMode: h.VIEW_MOD,
+                isPrepaid: h.IS_PREPAID,
+                profileWidth: h.FASAD_PG_WIDTH,  assemblyAngle: h.ASSEMBLY_ANGLE,
+                prisad: h.PRISAD, termoshov: h.TERMOSHOV,
+                fasadMaterial: h.FASAD_MAT, fasadModel: h.FASAD_MODEL, texture: h.TEXTURE, textureComment: h.TEXTURE_COMMENT, 
+                filenkaMaterial: h.FIL_MAT, filenkaModel: h.FIL_MODEL,  filenkaColor: h.FIL_COLOR,
+                color: h.COLOR, colorType: h.COLOR_TYPE, colorLak: h.COLOR_LAK, colorLakComment: h.COLOR_LAK_COMMENT, 
+                colorPatina: h.COLOR_PATINA, colorPatinaComment: h.COLOR_PATINA_COMMENT,
+                square: h.ORDER_GENERALSQ, squareFasad: h.ORDER_FASADSQ, comment: h.PRIMECH,
+                discount: h.ORDER_DISCOUNT, discountComment: h.ORDER_DISCOUNT_COMMENT,
+                costPack: h.ORDER_COST_PACK,
+                dateLastSave: h.FACT_DATE_LASTSAVE,
+                dateCalcCost: h.FACT_DATE_CALCCOST, dateFactPack: h.FACT_DATE_PACK,
+                dateFactOrderOut: h.FACT_DATE_ORDER_OUT, 
+                statusNum: h.ORDER_STATUS, status: h.STATUS_DESCRIPTION
+            }
+            
+            // Отображение согласно прав.
+            if (isViewCity)             header.city             = h.CITY;
+            if (isViewCost) {           header.costPriceColumn  = h.ORDER_COST_PRICECOLUMN; 
+                                        header.cost             = h.ORDER_COST;
+                                        header.totalCost        = h.ORDER_TOTAL_COST;
+                                        header.costUp           = h.ORDER_COSTUP;
+                                        header.costUpComment    = h.ORDER_COSTUP_COMMENT;
+            }
+            if (isViewPay)              header.pay              = h.ORDER_PAY;
+            if (isViewDebt)             header.debt             = h.ORDER_DEBT;
+            if (isViewDateFirstStage)   header.dateFirstStage   = h.PLAN_DATE_FIRSTSTAGE;
+            if (isViewDateSave)         header.dateSave         = h.FACT_DATE_FIRSTSAVE;
+            if (isViewDatePlanPack)     header.datePlanPack     = h.PLAN_DATE_PACK;
+            return header;
+
+        });
+        const body              = resBody.map(b => {
+            let body = {
+                id:             b.ID, 
+                orderId:        b.ORDER_ID,
+                name:           b.NAME,
+                height:         b.HEIGHT,
+                width:          b.WIDTH,
+                amount:         b.EL_COUNT,
+                square:         b.SQUARE,
+                comment:        b.COMMENT,
+                unit:           b.MEASURE_UNIT
+            }
+            // Отображение согласно прав.
+            if (isViewCost) {           body.cost           = b.COST; 
+                                        body.calcAs         = b.CALC_AS;
+                                        body.costSng        = b.COST_SNG;
+                                        body.priceCost      = b.PRICE_COST;
+                                        body.priceMod       = b.MOD_PRICE;
+                                        body.calcComment    = b.CALC_COMMENT;
+            }
+            return body;
+        });
+        const plans     = resPlans.map(p => {
+            return {
+                id:         p.ID,
+                orderId:    p.ORDER_ID,
+                sector:     p.SECTOR || p.DATE_DESCRIPTION,
+                dateSector: p.DATE_SECTOR,
+                comment:    p.COMMENT,
+                date:       p.DATE3
+            }
+        });
+
+
+        const order = {header, body, plans};
+        return res.status(200).json({order});   
     } catch (error) {
         console.log(error);
+        return res.status(500).json({errors: [error.message], message: 'Ошибка запроса: getOneOrder'});
     }
 }
 
 const getDataHeaderForCreateOrder = (req, res) => {
-    let lists = {};
-    pool.get((err, db) => {
-        if (err) return res.status(400).json({errors: ['ok'], message: 'Ошибка подключения к базе данных.'});
-        db.query(ordersQuery.get('get_order_clients'), (err, result) => {
-            if (!err) lists.clients = result.map(item => item.CLIENTNAME.trim());
-            db.query(ordersQuery.get('get_order_nomenclature'), (err, result) => {
-                if (!err) lists.nomenclature = result.map(item => item.NOMENCLATURE.trim());
-                db.query(ordersQuery.get('get_employers'), (err, result) => {
-                    if (!err) lists.employers = result.map(item => item.NAME);
-                    db.detach();
-                    lists = {... lists, ...listsData.orderdata};
-                    //console.log(req.get('Authorization'));
-                    return res.status(200).json({lists});
-                })
+    try {
+        let lists = {};
+        pool.get((err, db) => {
+            if (err) return res.status(400).json({errors: ['ok'], message: 'Ошибка подключения к базе данных.'});
+            db.query(ordersQuery.get('get_order_clients'), (err, result) => {
+                if (!err) lists.clients = result.map(item => item.CLIENTNAME.trim());
+                db.query(ordersQuery.get('get_order_nomenclature'), (err, result) => {
+                    if (!err) lists.nomenclature = result.map(item => item.NOMENCLATURE.trim());
+                    db.query(ordersQuery.get('get_employers'), (err, result) => {
+                        if (!err) lists.employers = result.map(item => item.NAME);
+                        db.detach();
+                        lists = {... lists, ...listsData.orderdata};
+                        return res.status(200).json({lists});
+                    })
+                });
             });
         });
-    });
-    pool.destroy();
+        pool.destroy();
+    } catch (error) {
+        console.log(error);
+    }
+    
 }
 
 const getdefaultSample = () => {
@@ -348,5 +477,6 @@ module.exports = {
     getOneOrder,
     getImageTest,
     getSampleForOrder,
+    orderExists,
     getDataHeaderForCreateOrder
 }

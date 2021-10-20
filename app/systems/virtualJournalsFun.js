@@ -156,6 +156,9 @@ const getJournalToId = async (id) => {
             )
         order by P.DATE3
         `;
+
+        //console.log(query);
+
         const journal = [];
         const res = await db.executeRequest(query); // Получаем данные из базы
         /** Обработка дынных **/

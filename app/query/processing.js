@@ -33,11 +33,14 @@ module.exports = (opt) => {
     }
     else options.$sort = '';
     if (options.$where) {
-        tempOpt = String(options.$where).replace(/ +/g, ' ').trim();;
-        if (!tempOpt.includes('WHERE', 0) || !tempOpt.includes('where', 0) || !tempOpt.includes('Where', 0)) {
+        tempOpt = String(options.$where).replace(/ +/g, ' ').trim();
+        var firstWord = tempOpt.replace(/ .*/,'');
+        if (!firstWord.toLocaleUpperCase().includes('WHERE', 0) || !firstWord.includes('where', 0) || !firstWord.includes('Where', 0)) {
+            /*
             tempOpt = tempOpt.replace(new RegExp('WHERE', 'g'), '');
             tempOpt = tempOpt.replace(new RegExp('where', 'g'), '');
             tempOpt = tempOpt.replace(new RegExp('Where', 'g'), '');
+            */
             tempOpt = `WHERE ${tempOpt}`;
         }
         options.$where = tempOpt;

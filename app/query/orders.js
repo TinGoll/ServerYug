@@ -56,7 +56,8 @@ const data = [
                 O.ORDER_GENERALSQ, O.ORDER_FASADSQ, O.GLASS, O.PRIMECH, O.ORDER_COST_PRICECOLUMN, O.ORDER_COST,
                 O.ORDER_PAY, (O.ORDER_TOTAL_COST - coalesce(O.ORDER_PAY, 0)) * -1 as ORDER_DEBT,
                 O.ORDER_TOTAL_COST, O.ORDER_DISCOUNT, O.ORDER_DISCOUNT_COMMENT, O.ORDER_COSTUP, O.ORDER_COSTUP_COMMENT,
-                O.ORDER_COST_PACK, O.ORDER_COST_GLASS, O.FACT_DATE_RECEIVE, O.FACT_DATE_FIRSTSAVE, O.FACT_DATE_LASTSAVE,
+                O.ORDER_COST_PACK, O.ORDER_COST_GLASS, O.FACT_DATE_RECEIVE, CAST(O.FACT_DATE_FIRSTSAVE AS TIMESTAMP) AS FACT_DATE_FIRSTSAVE, 
+                O.FACT_DATE_LASTSAVE,
                 O.FACT_DATE_CALCCOST, O.FACT_DATE_EXPORT_ITM, O.FIRSTSTAGEBAD, O.FACT_DATE_PACK, O.FACT_DATE_ORDER_OUT,
                 O.ORDER_STATUS, O.FACT_DATE_ORDER_CANCEL, O.REASON_ORDER_CANCEL, O.USER_ORDER_CANCELED, O.ORDER_TYPE,
                 O.TEXTURE_COMMENT, O.COLOR_LAK_COMMENT, O.COLOR_PATINA_COMMENT, O.PRISAD, O.PLAN_DATE_FIRSTSTAGE,
@@ -76,8 +77,9 @@ const data = [
             query: (opt) => { 
                 // E.PRICE_COST, E.COST, E.COST_SNG,
                 const {$first = '', $skip = '', $where = '', $sort = ''} = opt;
-                q =`select E.ID, E.ORDER_ID, E.NAME, E.HEIGHT, E.WIDTH, E.EL_COUNT, E.SQUARE, E.comment, E.CALC_AS, 
-                    E.COST_SNG, E.CALC_COMMENT,
+                q =`select  E.ID, E.ORDER_ID, E.NAME, E.HEIGHT, E.WIDTH, 
+                            E.EL_COUNT, E.SQUARE, E.COMMENT, E.CALC_AS, E.MOD_PRICE,
+                            E.PRICE_COST, E.COST, E.COST_SNG, E.CALC_COMMENT,
                     (select first 1 P.MEASURE_UNIT
                  from PRICE_LIST P
                  where upper(P.NOMENCLATURE) = upper(E.NAME)) as MEASURE_UNIT 
@@ -90,8 +92,13 @@ const data = [
             name: 'get_order_plans',
             query: (opt) => {
                 const {$first = '', $skip = '', $where = '', $sort = ''} = opt;
-                const $tempSort = $sort || 'order by date3, id';
-                q =`select * from orders_date_plan ${$where} ${$tempSort}`;
+                const $tempSort = $sort || 'order by P.DATE3, P.ID';
+                q =`
+                    SELECT P.ID, P.ORDER_ID, P.DATE_SECTOR, GET_SECTOR_NAME(O.ID_NEW_SECTOR) as SECTOR,
+                        P.DATE_DESCRIPTION, P.COMMENT, P.DATE3
+                        FROM ORDERS_DATE_PLAN P
+                        LEFT JOIN SECTORS_OLD O ON (UPPER(O.NAME_OLD_SECTOR) = UPPER(P.DATE_DESCRIPTION))
+                    ${$where} ${$tempSort}`;
                 return q;
             },
             defaultOptions: {}

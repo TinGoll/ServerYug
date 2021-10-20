@@ -73,7 +73,6 @@ const deffinePermission = async (db) => {
             values (${per.permissionGroupId}, ${per.permissionId}, ${per.status})
             returning ID`
         const {ID} = await db.executeRequest(query);
-        console.log(ID);
         for (const data of per.data) {
             await db.executeRequest(`
                 insert into PERMISSION_DATA (ID_PERMISSION_LIST, NAME, DATA)
@@ -101,7 +100,6 @@ const fun = async (db) => {
         let count = 0;
         for (const order of orders) {
             count ++;
-            console.log(`${count} из ${orders.length}`);
             let query = `
                 execute block
                 returns (ID integer)

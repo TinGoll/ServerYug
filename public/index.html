@@ -31,13 +31,23 @@
                     <b class="get-query">GET Запрос</b>: Возвращает массив заказов [<i>orders</i>], 
                         общее колличество заказов <i>count</i> и колличество страниц <i>pages</i>. <br>
                         Требуеться токен. <br>
-                    <b>Параметры:</b> _sort, _order, _page, _limit
+                    <b>Параметры:</b> _sort, _page, _limit, _filter
                 </td>
               </tr>
+
               <tr class="body-td">
                 <td class="body-cell">http://192.168.2.10:3131/orders/ID(number)</td>
                 <td> 
                     <b class="get-query">GET Запрос</b>: Возвращает заказ order, шапку header, тело заказа body и планы plans.<br>
+                    Требуеться токен. <br>
+                    <b>Параметры:</b> Нет
+                </td>
+              </tr>
+              <tr class="body-td">
+                <td class="body-cell">http://192.168.2.10:3131/orders/exists/ID(number)</td>
+                <td> 
+                    <b class="get-query">GET Запрос</b>: Служит для проверки наличия заказа в БД. Возвращает  минимальные данные заказа.<br>
+                    Токен не требуеться. <br>
                     <b>Параметры:</b> Нет
                 </td>
               </tr>

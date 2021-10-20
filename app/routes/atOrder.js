@@ -54,7 +54,7 @@ router.get(
     async (req, res) => {
         try {
             const idJournalName =  req.params.id;
-
+            const defaultError = 'Не достаточно прав.';
             // Проверка токена, получение пользователя.
             let decoded;
             const token = req.get('Authorization');
@@ -90,7 +90,8 @@ router.get(
                     return res.status(500).json({errors: ['List empty'], message: 'Список пуст.'});
             return res.status(200).json({transactions});
         } catch (error) {
-             return res.status(500).json({errors: [error.message], message: 'Ошибка запроса: Get transactions'});
+            console.log(error);
+            return res.status(500).json({errors: [error.message], message: 'Ошибка запроса: Get transactions'});
         }
     }
 );
@@ -125,7 +126,7 @@ router.get(
                 const sectorID = salary.find(s => s.SECTOR == sectorsName).ID_SECTOR;
                 const sector = {id: sectorID, name: sectorName, otherTransactoins: {}, orders: []}
 
-                const otherTrans = await db.executeRequest(`select T.NAME, T.DESCRIPTION, T.AMOUNT, T.MODIFER
+                const otherTrans = await db.executeRequest(`select T.NAME, T.DESCRIPTION, T.AMOUNT, T.MODIFER, T.TRANS_COMMENT
                                                         from OTHER_TRANSACTIONS T
                                                         where T.ID_TRANSACTION = ${idTrans} and T.ID_SECTOR = ${sectorID}`);
                 sector.otherTransactoins = {
@@ -135,6 +136,7 @@ router.get(
                                 userName: t.NAME,
                                 description: t.DESCRIPTION,
                                 amount: t.AMOUNT,
+                                comment: t.TRANS_COMMENT,
                                 modifer: t.MODIFER
                             }
                         })
@@ -190,7 +192,7 @@ router.get(
             const journals = await jfunction.permissionSet(user); // доступные журналы.
             const journal = journals.find(j => j.id == idJournalName);
             if(!journal) return res.status(500)
-                .json({errors: ['У тебя нет прав на получение данных этого журнала. Обратись к администатору.'], message: defaultError});
+                .json({errors: ['У тебя нет прав на получение данных по расчетному периоду. Обратись к администатору.'], message: defaultError});
             // Конец проверки прав.
             const query = `select O.ID, O.ITM_ORDERNUM, J.ID as ID_JOIRNAL, P.ID_SECTOR, S.NAME as SECTOR, 
                             W.ID as ID_WORK_OF_COST, P.ID as ID_WORK, P.NAME as WORK_NAME,
@@ -239,7 +241,7 @@ router.get(
                 // Дополнительные начисления и списания.
                 const users = await db.executeRequest(`select E.NAME from EMPLOYERS E where E.ID_SECTOR = ${sectorID}`);
                 sector.otherTransactoins = {
-                    users: [...users.map(u => u.NAME)],
+                    users: ['Все', ...users.map(u => u.NAME)],
                     values: [
                         {userName: '', description: 'Налог', amount: 0, modifer: -1, comment: ''},
                         {userName: '', description: 'Штраф', amount: 0, modifer: -1, comment: ''},
@@ -267,18 +269,32 @@ router.get(
 router.patch(
     '/close-billing-period',
     async (req, res) => {
+        const permissions = [
+            'Journals [close-billing-period] patch all'
+        ]
+        // Получение пользователя и проверка прав
         let decoded;
-        const {sectors} = req.body;
-
-
-
-
-        if (!sectors || sectors.length == 0) return res.status(500).json({errors: ['Список пуст.'], message: 'Нет данных.'})
         const token = req.get('Authorization');
         try {decoded = jwt.verify(token, settings.secretKey);} 
         catch (error) {return res.status(500).json({errors: [error.message], message: 'Некорректный токен'})}
         const user = await users.getUserToID(decoded.userId);
+        if (!await user.permissionCompare(permissions[0])) {
+            return res.status(500)
+                .json({errors: ['У тебя нет прав на закрытие расчетного периода. Обратись к администатору.'], 
+                        message: 'Не достаточно прав.'});
+        }
+        // Проверка, есть ли заказы для закрытия периода.
+        const {sectors} = req.body;
+        let isEmpty = true;
+        if (sectors && sectors.length) 
+            for (const sector of sectors)
+                if (sector && sector?.orders.length) isEmpty = false;
+         if (isEmpty) return res.status(500).json({errors: ['Список пуст.'], message: 'Нет данных.'})
+        // Конец проверки.
         try {
+
+            
+
             const transaction = await db.executeRequest(`
                                 insert into SALARY_TRANSACTION (
                                 ID_USER, DATE_ADDED, SETTLEMENT_DATE, NAME, 
@@ -302,7 +318,6 @@ router.patch(
                         }else if (work.workOfCostId) {
                             if (work.isEdited) {
                                 await db.executeRequest(`update COST_OF_WORK W set W.PRICE = ${work.price} where W.ID = ${work.workOfCostId}`);
-                                console.log(`Обновили работы (${work.work}) ID ${work.workOfCostId}`);
                             } 
                         }else {
                             await db.executeRequest(`insert into COST_OF_WORK (ID_JOURNAL, ID_WORK_PRICE, PRICE) values (${order.idJournal}, ${work.workId}, ${work.price})`);
@@ -321,8 +336,6 @@ router.patch(
                         //if (!otherTransaction.userName) continue;
                         if (!otherTransaction.amount) continue;
                         if (!otherTransaction.modifer == 1 || !otherTransaction.modifer == -1) continue;
-
-                        console.log(otherTransaction);
 
                         await db.executeRequest(`
                             insert into OTHER_TRANSACTIONS (ID_TRANSACTION, ID_SECTOR, NAME, DESCRIPTION, AMOUNT, MODIFER, TRANS_COMMENT) 
@@ -352,7 +365,7 @@ router.patch(
 
             const cashlow = await db.executeRequest(`
                 insert into JOURNAL_CASHFLOW (FACT_DATE, CATEGORY, PURPOSE, MONEYSUM, comment, TS)
-                values (CURRENT_DATE, 'Зарплата сборка', 'Цветков', ${trSum.MONEY}, 'Внесено автоматически, формирование зарплаты сборка', CURRENT_TIMESTAMP)
+                values (CURRENT_DATE, 'Зарплата сборка', 'Цветков', ${(Math.abs(trSum.MONEY) * -1)}, 'Внесено автоматически, формирование зарплаты сборка', CURRENT_TIMESTAMP)
                 returning ID
             `);
       
@@ -389,42 +402,57 @@ router.post(
             if (!errors.isEmpty()) return res.status(500)
                         .json({errors: errors.array(), message: defaultError});
 
+            // получаем необходимые данные body/
             const {idTransfer: transferBarcode, idAccepted: acceptedBarcode, orders: registerOrders, ...other} = req.body;
 
+            // Если массив заказов пустой
             if (!Array.isArray(registerOrders) || registerOrders.length <= 0) return res.status(500)
                         .json({errors: ['Нет заказов для передачи.'], message: defaultError});
+
+            // Если баркод применающий и передающий, один и тот же            
             if (transferBarcode == acceptedBarcode) return res.status(500)
                         .json({errors: ['Нельзя передавать заказ самому себе.'], message: defaultError});
 
+
+            // Получаем все данные по штрихкоду.
             let query = atOrderQuery.get('get_barcodes', {
                 $where: `UPPER(B.BARCODE) = '${transferBarcode.toUpperCase()}' 
                             or UPPER(B.BARCODE) = '${acceptedBarcode.toUpperCase()}'`});
 
             const barcodes = await db.executeRequest(query);
+            // Создаем объект передающий и принимающий.
             const transfer = barcodes.find(item => item.BARCODE.toUpperCase() === transferBarcode.toUpperCase());
             const accepted = barcodes.find(item => item.BARCODE.toUpperCase() === acceptedBarcode.toUpperCase());
 
+            // Если какой - то из двух штрихкодов некорректный.
             if (!transfer) journalErrors.push('Участок отправитель не определен.');
             if (!accepted) journalErrors.push('Участок получатель не определен.');
 
+            // В случае блокировки штрихкода.
             if (transfer && transfer.BLOCKED != 0) journalErrors.push(`Карточка отправителя заблокирована, пожалуйста обратитесь к руководству.`);
             if (accepted && accepted.BLOCKED != 0) journalErrors.push(`Карточка получателя заблокирована, пожалуйста обратитесь к руководству.`);
             if (journalErrors.length > 0) return res.status(500).json({errors: journalErrors, message: defaultError});
 
+
+            // Получаем старое название участка, по id нового участка.
             const namesTransferOldSector  = await getNameOldSectorArrToIdNewSector(transfer.ID_SECTOR);
             const namesAcceptedOldSector  = await getNameOldSectorArrToIdNewSector(accepted.ID_SECTOR); 
 
+           // Получаем зависимости 
             query = atOrderQuery.get('get_dep', {
                     $where: `
                     D.ID_SECTOR_TRANSFER = ${transfer ? transfer.ID_SECTOR : null} and
                     D.ID_SECTOR_ACCEPTED = ${accepted ? accepted.ID_SECTOR : null}
                 `});
             const journal = await db.executeRequest(query);
+            // Если зависимостей нет, то эти участки не могут передевать заказы друг другу, в таком порядке.
             if (!journal || journal.length == 0) return res.status(500).
                         json({errors: [`Участок ${transfer ? transfer.SECTOR : 
                                 '"отправитель" не определен и'} не может передавать заказы ${accepted ? 'участку ' + accepted.SECTOR : 
                                         'не определенному участку.'}`], 
                         message: defaultError});
+            
+            // Проверка заказов.           
             query = orderQuery.get('get_orders', {$where: `O.ID IN (${registerOrders.map(o => o.idOrder).join(', ')})`});    
             const orders = await db.executeRequest(query);
             query = `select J.ID, J.ID_ORDER, N.NAME
@@ -432,6 +460,7 @@ router.post(
                         left join JOURNAL_NAMES N on (J.ID_JOURNAL_NAMES = N.ID)
                         where J.ID_JOURNAL_NAMES in (${journal.map(j => j.ID_JOURNAL_NAME).join(', ')}) and
                         J.ID_ORDER in (${registerOrders.map(o => o.idOrder).join(', ')})`;
+            
             const adoptedOrders = await db.executeRequest(query);
             for (const o of registerOrders) {
                 const order = orders.find(ord => ord.ID === o.idOrder);
@@ -453,11 +482,9 @@ router.post(
                         o.description = `Заказ уже принят в "${isAdopted.NAME}"`;
                         continue;
                     }
-
                     const statusAllow = journal.find(j => j.STATUS_NUM === order.ORDER_STATUS)
 
                     const allowStatuses = journal.filter(j => !!j.STATUS_NUM); // Есть ли требуемые статусы
-
 
                     if (!statusAllow && (allowStatuses && allowStatuses.length)) {
                         o.completed = false;

@@ -10,6 +10,7 @@ const { users }    = require('../systems')
 const {check, validationResult} = require('express-validator');
 const { userList } = require('../systems/users');
 const jfunction    = require('../systems/virtualJournalsFun');
+const { links }    = require('../systems');
 
 const router = Router();
 
@@ -67,11 +68,7 @@ router.post(
     async (req, res) => {
         try {
             const {userName, password, barcode} = req.body;
-            /*
-            console.log('userName', userName);
-            console.log('password', password);
-            console.log('barcode', barcode);
-            */
+        
             let user = undefined;
             if (barcode) {
                 const query = `
@@ -102,7 +99,10 @@ router.post(
             //console.log(token)
             //user.setToken(token);
             await user.permissionLoad();
-            const sectorName = (await jfunction.getSectors()).find(s => s.id == user.sectorId)?.name
+            const sectorName        = (await jfunction.getSectors()).find(s => s.id == user.sectorId)?.name
+            const userLinks         = await links.getLinks(user);
+            const permissionList   = await user.getPermission();
+            
             return res.status(200).json({token, userId: user.id, 
                 user: {
                     userName:       user.userName, 
@@ -112,7 +112,8 @@ router.post(
                     isOwner:        user.isOwner,
                     sectorId:       user.sectorId,
                     sectorName,
-                    permissionList: user.getPermission()
+                    permissionList,
+                    links:          userLinks
                 }});
         } catch (error) {
             res.status(500).json({errors: [error.message],  message: 'Ошибка обработки post запроса - Вход в систему.'});

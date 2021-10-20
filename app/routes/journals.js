@@ -43,7 +43,6 @@ router.post
             try {decoded = jwt.verify(token, settings.secretKey);}
             catch (error) {return res.status(500).json({errors: [error.message], message: 'Ошибка авторизации.'})}
             const user = await users.getUserToID(decoded.userId);
-            console.log(req.body);
             const {sectors} = req.body;
 
         } catch (error) {
@@ -160,6 +159,7 @@ router.get(
                     default:
                         break;
                 }
+
                 if (!journal) return res.status(500).json({errors: ['Такой журнал не существует.'], message: defaultError});
                 //if (!journal) return res.json({arr:[]});
                 return res.json({journal});
