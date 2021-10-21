@@ -33,19 +33,44 @@ router.get(
         }
     }
 )
+
 // /api/journals/set-comment
 router.post
 (
     '/set-comment',
     async (req, res) => {
         try {
+            // Проверка токена, получение пользователя.
+            let decoded;
             const token = req.get('Authorization');
-            try {decoded = jwt.verify(token, settings.secretKey);}
-            catch (error) {return res.status(500).json({errors: [error.message], message: 'Ошибка авторизации.'})}
+            try {decoded = jwt.verify(token, settings.secretKey);} 
+            catch (error) {return res.status(500).json({errors: [error.message], message: 'Некорректный токен'})}
             const user = await users.getUserToID(decoded.userId);
-            const {sectors} = req.body;
-
+            // Конец проверки токена.
+            const comment = req.body;
+            
+            if (comment.dataId) {
+                if (!comment.text || comment.text == '') {
+                    const isDeleted = await db.executeRequest(`DELETE FROM JOURNAL_DATA D WHERE D.ID = ${comment.dataId} RETURNING ID;`);
+                    return res.status(200).json({dataId: isDeleted.ID});
+                }
+                const result = await db.executeRequest(`
+                    UPDATE JOURNAL_DATA D
+                    SET D.DATA_VALUE = '${comment.text}'
+                    WHERE D.ID = ${comment.dataId} RETURNING ID;
+                `);
+                if (result.ID) {
+                    return res.status(201).json({dataId: result.ID});
+                }
+            }
+            const {ID} = await db.executeRequest(`
+                INSERT INTO JOURNAL_DATA (ID_ORDER, ID_SECTOR, ID_EMPLOYEE, DATA_GROUP, DATA_NAME, DATA_VALUE)
+                VALUES (${comment.orderId}, ${user.sectorId}, ${user.id}, 'Comment', 'Комментарий', '${comment.text}') 
+                RETURNING ID;
+            `);
+            return res.status(201).json({dataId: ID});
         } catch (error) {
+            console.log(error);
             res.status(500).json({errors:[error.message], message: 'Ошибка добавления комментария.'})
         }
     }

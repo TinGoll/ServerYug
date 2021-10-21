@@ -307,32 +307,9 @@ const getOneOrder = async  (req, res) => {
         // Проверка токена, получение пользователя.
         let decoded;
         const token = req.get('Authorization');
-        
         try {decoded = jwt.verify(token, settings.secretKey);} 
         catch (error) {
-            return res.status(500).json({errors: ['Без токена ни как...', 
-                `Проверка, на стресоустойчивость: 
-                Lorem ipsum dolor sit, amet consectetur adipisicing elit. Expedita rem, eum nisi vero magni corrupti facere assumenda similique a magnam distinctio, sunt quidem ab ad officiis architecto ut accusantium adipisci.
-                    Fuga, blanditiis. Numquam suscipit at ipsam nemo ratione dolorum dignissimos quidem recusandae reiciendis adipisci quod sit, quam itaque accusantium, dicta est quae distinctio harum? Repellendus optio quasi laudantium aperiam harum.
-                    Perferendis mollitia ad inventore odit magnam voluptatum cupiditate amet, impedit nemo tempore labore quia repellat quidem nisi, eveniet explicabo laboriosam repudiandae modi cumque alias, adipisci quibusdam. Accusamus iusto eius esse.
-                    Exercitationem consectetur incidunt corrupti facilis inventore nihil rerum porro eaque placeat, aperiam, at ducimus reprehenderit reiciendis ex rem minima nemo laudantium quas obcaecati optio dolor possimus? Deleniti ratione eos natus.
-                    Veniam consequuntur nesciunt quidem cupiditate. Harum suscipit possimus corrupti nihil consequuntur libero architecto, perspiciatis ab accusamus? Ullam ipsa incidunt, dolorum natus ut, libero minima accusantium error tempore quasi reiciendis ex.
-                    Recusandae odit molestias quo, vitae obcaecati cupiditate, labore quae natus a sed, quia facilis quos deserunt repudiandae molestiae autem laudantium ipsum. Dolorum fugit numquam nostrum est cupiditate? Aliquid, rem officia.
-                    Perferendis rerum necessitatibus at illum cumque assumenda ullam vero officia dolor nesciunt. Ab rem vero in magni libero quidem aliquam iste? Odit inventore quibusdam dolores eum voluptas porro quia quisquam.
-                    In modi possimus omnis amet dolores veritatis quasi voluptates assumenda! Tempore unde placeat possimus dolorem eveniet vitae! Sint quo tempore vitae, eius, a commodi, fugit consequatur quaerat ipsa eos nihil.
-                    Quisquam aperiam soluta asperiores porro iure dolor ad explicabo. Numquam nam recusandae, illo voluptate excepturi, necessitatibus vel commodi dolorem odit dolorum mollitia laborum veritatis laudantium. Delectus eaque architecto soluta aperiam?
-                    Ex sed a corporis itaque dignissimos totam eaque atque consequatur. Impedit officiis perspiciatis consequuntur cumque quod quos? Aspernatur aperiam, error harum facere, beatae sit quo dolorem sapiente perferendis odit suscipit!
-                    Ut quos itaque hic atque eligendi nisi repellat, porro, laborum nesciunt magnam, harum aliquid fuga commodi ducimus ullam nam provident repellendus reiciendis! Quod rerum voluptate debitis beatae quaerat in voluptas.
-                    Consequatur, placeat. Cumque officiis quo ab odit fuga consequatur earum placeat velit atque doloremque illum culpa vitae a mollitia vero ipsam, quasi recusandae quis sapiente enim eligendi dicta! Iure, molestiae!
-                    Reiciendis, quos cupiditate. Inventore repellat distinctio error dolorem dignissimos, commodi cum adipisci. Adipisci suscipit consequuntur, tempora quae debitis consectetur nam incidunt est accusamus vel blanditiis deserunt, odio dolorum labore maxime.
-                    Sunt id nisi quas quos blanditiis cum excepturi officiis distinctio aliquid minus quaerat accusamus tenetur eius, atque velit non quasi quo cupiditate commodi architecto eaque hic in accusantium. Ipsum, provident?
-                    Quam eum deserunt vero modi, quas incidunt dignissimos officiis doloremque saepe placeat reiciendis adipisci deleniti, nostrum autem aspernatur ullam aliquid repellat distinctio obcaecati iure, commodi veniam labore! Sint, corrupti enim.
-                    Optio ipsam consequatur deserunt obcaecati eaque laboriosam ullam harum! Quas, nostrum. Consectetur corporis tempora voluptate dignissimos nulla magnam ducimus mollitia, amet nesciunt ipsam facilis optio molestiae voluptatem officia! Reiciendis, autem?
-                    Modi aliquam laborum quasi ipsum recusandae dolor vel facilis quos ducimus odio, sunt delectus sapiente debitis ullam, nemo consectetur quae similique fuga. Obcaecati consequuntur est ratione odio minima porro laboriosam.
-                    Illo neque impedit possimus temporibus earum natus eveniet itaque. Ipsum cupiditate blanditiis quas eos dolor modi, mollitia maxime dicta odit explicabo dolorum neque cum nihil suscipit! Iste ipsa nihil sunt.
-                    Libero nesciunt eveniet numquam dignissimos molestias adipisci ut consequatur consequuntur iure, sapiente fugiat aliquid et maiores, ducimus culpa modi, minima vitae velit. Corrupti a vitae sunt mollitia doloremque. Consequuntur, eos.
-                    Aspernatur unde quibusdam magnam consectetur reprehenderit sit laudantium libero sed dignissimos vel commodi sapiente ipsa, qui officiis cum quia maiores numquam repellendus, non ratione quae possimus illum, neque adipisci! Est.`], message: 'Где токен, господа?'})
-            //return res.status(500).json({errors: [error.message], message: 'Некорректный токен'})
+            return res.status(500).json({errors: [error.message], message: 'Некорректный токен'})
         }
         const user = await users.getUserToID(decoded.userId);
         // Конец проверки токена.

@@ -401,24 +401,18 @@ router.post(
             const errors = validationResult(req);
             if (!errors.isEmpty()) return res.status(500)
                         .json({errors: errors.array(), message: defaultError});
-
             // получаем необходимые данные body/
             const {idTransfer: transferBarcode, idAccepted: acceptedBarcode, orders: registerOrders, ...other} = req.body;
-
             // Если массив заказов пустой
             if (!Array.isArray(registerOrders) || registerOrders.length <= 0) return res.status(500)
                         .json({errors: ['Нет заказов для передачи.'], message: defaultError});
-
             // Если баркод применающий и передающий, один и тот же            
             if (transferBarcode == acceptedBarcode) return res.status(500)
                         .json({errors: ['Нельзя передавать заказ самому себе.'], message: defaultError});
-
-
             // Получаем все данные по штрихкоду.
             let query = atOrderQuery.get('get_barcodes', {
                 $where: `UPPER(B.BARCODE) = '${transferBarcode.toUpperCase()}' 
                             or UPPER(B.BARCODE) = '${acceptedBarcode.toUpperCase()}'`});
-
             const barcodes = await db.executeRequest(query);
             // Создаем объект передающий и принимающий.
             const transfer = barcodes.find(item => item.BARCODE.toUpperCase() === transferBarcode.toUpperCase());
@@ -433,18 +427,19 @@ router.post(
             if (accepted && accepted.BLOCKED != 0) journalErrors.push(`Карточка получателя заблокирована, пожалуйста обратитесь к руководству.`);
             if (journalErrors.length > 0) return res.status(500).json({errors: journalErrors, message: defaultError});
 
-
             // Получаем старое название участка, по id нового участка.
             const namesTransferOldSector  = await getNameOldSectorArrToIdNewSector(transfer.ID_SECTOR);
             const namesAcceptedOldSector  = await getNameOldSectorArrToIdNewSector(accepted.ID_SECTOR); 
 
-           // Получаем зависимости 
+            // Получаем зависимости 
             query = atOrderQuery.get('get_dep', {
                     $where: `
                     D.ID_SECTOR_TRANSFER = ${transfer ? transfer.ID_SECTOR : null} and
                     D.ID_SECTOR_ACCEPTED = ${accepted ? accepted.ID_SECTOR : null}
                 `});
+
             const journal = await db.executeRequest(query);
+
             // Если зависимостей нет, то эти участки не могут передевать заказы друг другу, в таком порядке.
             if (!journal || journal.length == 0) return res.status(500).
                         json({errors: [`Участок ${transfer ? transfer.SECTOR : 
@@ -455,11 +450,15 @@ router.post(
             // Проверка заказов.           
             query = orderQuery.get('get_orders', {$where: `O.ID IN (${registerOrders.map(o => o.idOrder).join(', ')})`});    
             const orders = await db.executeRequest(query);
+            //Проверка на наличие уже принятых заказов в этом журнале.
+
             query = `select J.ID, J.ID_ORDER, N.NAME
                         from JOURNALS J
                         left join JOURNAL_NAMES N on (J.ID_JOURNAL_NAMES = N.ID)
                         where J.ID_JOURNAL_NAMES in (${journal.map(j => j.ID_JOURNAL_NAME).join(', ')}) and
                         J.ID_ORDER in (${registerOrders.map(o => o.idOrder).join(', ')})`;
+
+
             
             const adoptedOrders = await db.executeRequest(query);
             for (const o of registerOrders) {
