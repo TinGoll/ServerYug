@@ -72,7 +72,7 @@ const getPlansToOrderId = async (orderId) => {
 const isWorkPlan = (arrSectorNames, arrPlans) => {
     try {
         for (const name of arrSectorNames) {
-            const plan = arrPlans.find(p => p.DATE_DESCRIPTION.toUpperCase() == name.toUpperCase());
+            const plan = arrPlans.find(p => p.dateDescription.toUpperCase() == name.toUpperCase());
             if (plan) return true;
         }
         return false;

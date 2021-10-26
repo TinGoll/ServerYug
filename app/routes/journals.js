@@ -48,12 +48,14 @@ router.post
             const user = await users.getUserToID(decoded.userId);
             // Конец проверки токена.
             const comment = req.body;
-            
+            // Если ID коммента существует, изменяем существующий
             if (comment.dataId) {
                 if (!comment.text || comment.text == '') {
+                    // Если поле текстпустое - удаляем коммент.
                     const isDeleted = await db.executeRequest(`DELETE FROM JOURNAL_DATA D WHERE D.ID = ${comment.dataId} RETURNING ID;`);
                     return res.status(200).json({dataId: isDeleted.ID});
                 }
+                // Если не пустое, обновляем коммент.
                 const result = await db.executeRequest(`
                     UPDATE JOURNAL_DATA D
                     SET D.DATA_VALUE = '${comment.text}'
@@ -63,6 +65,7 @@ router.post
                     return res.status(201).json({dataId: result.ID});
                 }
             }
+            // Если ID коммента 0 - добавляем новый.
             const {ID} = await db.executeRequest(`
                 INSERT INTO JOURNAL_DATA (ID_ORDER, ID_SECTOR, ID_EMPLOYEE, DATA_GROUP, DATA_NAME, DATA_VALUE)
                 VALUES (${comment.orderId}, ${user.sectorId}, ${user.id}, 'Comment', 'Комментарий', '${comment.text}') 

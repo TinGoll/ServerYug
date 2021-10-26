@@ -216,9 +216,10 @@ const finderEngine = async txt => {
                         COALESCE(O.FASAD_MODEL, '') || '_' ||
                         COALESCE(O.TEXTURE, '') || '_' ||
                         COALESCE(O.COLOR, '') || '_' ||
-                        COALESCE( O.PRIMECH, '') || '_' ||
+                        COALESCE(O.PRIMECH, '') || '_' ||
                         COALESCE(O.ORDER_TYPE, '') || '_' ||
                         COALESCE(O.VIEW_MOD, '') || '_' ||
+                        COALESCE(LIST_STATUSES.STATUS_DESCRIPTION, '') || '_' ||
                         COALESCE(C.CITY, ''))
                         like '%${c}%'`
                 )

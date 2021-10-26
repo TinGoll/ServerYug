@@ -432,91 +432,157 @@ router.post(
             const namesAcceptedOldSector  = await getNameOldSectorArrToIdNewSector(accepted.ID_SECTOR); 
 
             // Получаем зависимости 
-            query = atOrderQuery.get('get_dep', {
-                    $where: `
-                    D.ID_SECTOR_TRANSFER = ${transfer ? transfer.ID_SECTOR : null} and
-                    D.ID_SECTOR_ACCEPTED = ${accepted ? accepted.ID_SECTOR : null}
-                `});
+            query = `
+                SELECT  D.ID, D.ID_SECTOR_TRANSFER, D.ID_SECTOR_ACCEPTED, D.ID_JOURNAL_NAME,
+                        D.ID_STATUS_AFTER, D.ID_STATUS_AFTER_OLD, D.START_STAGE
+                FROM JOURNAL_DEP D
+                WHERE   D.ID_SECTOR_TRANSFER = ${transfer ? transfer.ID_SECTOR : null} AND
+                        D.ID_SECTOR_ACCEPTED = ${accepted ? accepted.ID_SECTOR : null}`
 
-            const journal = await db.executeRequest(query);
+            const dependencies = (await db.executeRequest(query)).map(d => {
+                return {
+                    id:                 d.ID,
+                    transfer:           d.ID_SECTOR_TRANSFER,
+                    accepted:           d.ID_SECTOR_ACCEPTED,
+                    journalNameId:      d.ID_JOURNAL_NAME,
+                    statusAfterOldId:   d.ID_STATUS_AFTER_OLD,
+                    statusAfterId:      d.ID_STATUS_AFTER,
+                    startStage:       !!d.START_STAGE
+                }
+            });
+            // Если в зависимости передающий этап являеться стартовым.
+            const isStartingStage = (dependencies.find(d => d.startStage))?.startStage || false;
 
             // Если зависимостей нет, то эти участки не могут передевать заказы друг другу, в таком порядке.
-            if (!journal || journal.length == 0) return res.status(500).
+            if (dependencies.length == 0) return res.status(500).
                         json({errors: [`Участок ${transfer ? transfer.SECTOR : 
                                 '"отправитель" не определен и'} не может передавать заказы ${accepted ? 'участку ' + accepted.SECTOR : 
-                                        'не определенному участку.'}`], 
-                        message: defaultError});
+                                        'не определенному участку.'}`], message: defaultError});    
             
-            // Проверка заказов.           
-            query = orderQuery.get('get_orders', {$where: `O.ID IN (${registerOrders.map(o => o.idOrder).join(', ')})`});    
-            const orders = await db.executeRequest(query);
-            //Проверка на наличие уже принятых заказов в этом журнале.
-
-            query = `select J.ID, J.ID_ORDER, N.NAME
-                        from JOURNALS J
-                        left join JOURNAL_NAMES N on (J.ID_JOURNAL_NAMES = N.ID)
-                        where J.ID_JOURNAL_NAMES in (${journal.map(j => j.ID_JOURNAL_NAME).join(', ')}) and
-                        J.ID_ORDER in (${registerOrders.map(o => o.idOrder).join(', ')})`;
-
-
-            
-            const adoptedOrders = await db.executeRequest(query);
-            for (const o of registerOrders) {
-                const order = orders.find(ord => ord.ID === o.idOrder);
-                if (order) {
-                    const plans = await getPlansToOrderId(order.ID);
-                    if (!isWorkPlan(namesTransferOldSector, plans)) {
-                        o.completed = false;
-                        o.description = `Участок "${transfer.SECTOR}" не включен в планы по этому заказу.`;
-                        continue;
+            // Проверка заказов.   
+            const orderListString = registerOrders.map(o => o.idOrder).join(', ');       
+            query = `
+                SELECT DISTINCT 
+                    O.ID, O.ITM_ORDERNUM, S.ID AS OLD_STATUS_ID, S.STATUS_DESCRIPTION,
+                    GET_JSTATUS_ID(O.ID) AS STATUS_ID,
+                    J.ID AS JOURNAL_ID, N.NAME AS JOURNAL_NAME
+                FROM ORDERS O
+                    LEFT JOIN LIST_STATUSES S ON (O.ORDER_STATUS = S.STATUS_NUM)
+                    LEFT JOIN JOURNALS J ON (J.ID_ORDER = O.ID)
+                    LEFT JOIN JOURNAL_NAMES N ON (J.ID_JOURNAL_NAMES = N.ID)
+                    WHERE O.ID IN (${orderListString})`;
+            const orderWorks = (await db.executeRequest(`
+                        SELECT P.ID, P.ORDER_ID, P.DATE_SECTOR, P.DATE_DESCRIPTION, P.COMMENT, P.DATE1, P.DATE2, P.DATE3
+                        FROM ORDERS_DATE_PLAN P
+                        WHERE P.ORDER_ID IN (${orderListString})`))
+                .map(w => {
+                    return {
+                        id:                 w.ID,
+                        orderId:            w.ORDER_ID,
+                        dateSector:         w.DATE_SECTOR,  
+                        dateDescription:    w.DATE_DESCRIPTION,  
+                        comment:            w.COMMENT ,
+                        date1:              w.DATE1, 
+                        date2:              w.DATE2,
+                        date3:              w.DATE3
                     }
-                    if (!isWorkPlan(namesAcceptedOldSector, plans)) {
-                        o.completed = false;
-                        o.description = `Для данного заказа нет работ по участку "${accepted.SECTOR}"`;
-                        continue;
-                    }
-                    const isAdopted = adoptedOrders.find(o => o.ID_ORDER == order.ID);
-                    if (isAdopted) {
-                        o.completed = false;
-                        o.description = `Заказ уже принят в "${isAdopted.NAME}"`;
-                        continue;
-                    }
-                    const statusAllow = journal.find(j => j.STATUS_NUM === order.ORDER_STATUS)
-
-                    const allowStatuses = journal.filter(j => !!j.STATUS_NUM); // Есть ли требуемые статусы
-
-                    if (!statusAllow && (allowStatuses && allowStatuses.length)) {
-                        o.completed = false;
-                        o.description = `Не верный статус "${order.STATUS_DESCRIPTION}", ожидается: "${journal.map(j => j.STATUS_DESCRIPTION).join(', ')}"`;
-                        continue;
-                    }
-                    o.completed = true;
-                    o.description = `успешно!`;
-                    const query = `
-                                execute block
-                                returns (ID integer)
-                                as
-                                begin
-                                    insert into JOURNALS (ID_ORDER, ID_JOURNAL_NAMES, NOTE, TS, TRANSFER_DATE)
-                                    values (${order.ID}, ${journal[0].ID_JOURNAL_NAME}, ${o.comment ? '\'' + o.comment + '\'' : null}, 
-                                        '${format(new Date(), 'DD.MM.YYYY HH:mm:ss')}', '${format(other.date, 'DD.MM.YYYY HH:mm:ss')}') returning ID into :ID;
-
-                                    insert into JOURNAL_TRANS (ID_EMPLOYEE, ID_SECTOR, ID_JOURNAL, MODIFER)
-                                    values (${transfer.ID_EMPLOYEE}, ${transfer.ID_SECTOR}, :ID, -1);
-                                    insert into JOURNAL_TRANS (ID_EMPLOYEE, ID_SECTOR, ID_JOURNAL, MODIFER)
-                                    values (${accepted.ID_EMPLOYEE}, ${accepted.ID_SECTOR}, :ID, 1);
-                                    insert into cost_of_work (id_journal, id_work_price, price)
-                                    select :ID as id_journal, p.id as id_price, p.price from work_prices p
-                                    where p.id_sector = ${transfer.ID_SECTOR};
-                                    suspend;
-                                end`;
-                    await db.executeRequest(query);
-                    const newStatus = await getStatusNumOldToIdStatusOld(journal[0].ID_STATUS_AFTER);
-                    if (newStatus) await db.executeRequest(`update ORDERS O set O.ORDER_STATUS = ${newStatus} where O.ID = ${order.ID}`);
-                }else{
-                    o.completed = false;
-                    o.description = `Номер заказа [${o.idOrder}] не найден в базе данных.`;
+                });
+            const orderLocations = (await db.executeRequest(`
+                SELECT L.ID_ORDER, L.ID_EMPLOYEE, L.ID_SECTOR, L.MODIFER
+                FROM LOCATION_ORDER L
+                WHERE L.ID_ORDER IN (${orderListString}) AND L.ID_SECTOR = ${transfer.ID_SECTOR}
+            `))
+            .map(l => {
+                return {
+                    orderId: l.ID_ORDER,
+                    employeeId: l.ID_EMPLOYEE,
+                    sectorId: l.ID_SECTOR,
+                    modifer: l.MODIFER
                 }
+            });
+            const orders = (await db.executeRequest(query)).map(o => {
+                const works = orderWorks.filter(w => w.orderId == o.ID);
+                const locations = orderLocations.filter(l => l.orderId == o.ID);
+                return {
+                    id:             o.ID,
+                    itmOrderNum:    o.ITM_ORDERNUM,
+                    oldStatusId:    o.OLD_STATUS_ID,
+                    oldStatusName:  o.STATUS_DESCRIPTION,
+                    statusId:       o.STATUS_ID,
+                    journalId:      o.JOURNAL_ID,
+                    journalName:    o.JOURNAL_NAME,
+                    works,
+                    locations,
+                }
+            });
+         
+            for (const order of orders) {
+                const registerOrder =  registerOrders.find(o => o.idOrder == order.id);
+                registerOrder.completed = true;
+                registerOrder.description = `успешно`;
+
+                if (!registerOrder) continue;
+                // Если есть данные работы, по передающему участку.
+                if (!isWorkPlan(namesTransferOldSector, order.works)) {
+                    registerOrder.completed = false;
+                    registerOrder.description = `Участок "${transfer.SECTOR}" не включен в планы по этому заказу.`;
+                    continue;
+                }
+                // Если есть данные работы, по принимающему участку.
+                if (!isWorkPlan(namesAcceptedOldSector, order.works)) {
+                    registerOrder.completed = false;
+                    registerOrder.description = `Участок "${accepted.SECTOR}" не включен в планы по этому заказу.`;
+                    continue;
+                }
+                // Если заказ уже передан от отправителья к получателю. (проверка статуса отключена, можно передавать только один раз)
+                if(order.journalId) {
+                    registerOrder.completed = false;
+                    registerOrder.description = `Заказ уже принят в "${order.journalName}"`;
+                    continue;
+                }
+                // Если заказ не был принят передающим участком или 
+                registerOrder.modiferCount = 1; // Установка мдификатора по умолчанию
+                if (!isStartingStage) {
+                    const [ location ] = order.locations;
+                    const modiferCount = location?.modifer;
+                    if (modiferCount) {
+                        registerOrder.modiferCount = modiferCount;
+                    }else{
+                        registerOrder.completed = false;
+                        registerOrder.description = `Заказ не был передан в участок "${transfer.SECTOR}", и этот участок не является стартовым.`;
+                        continue;
+                    }
+                }
+                const query = `
+                        execute block
+                        returns (ID integer)
+                        as
+                        begin
+                            insert into JOURNALS (ID_ORDER, ID_JOURNAL_NAMES, NOTE, TS, TRANSFER_DATE)
+                            values (${order.id}, ${dependencies[0].journalNameId}, ${registerOrder.comment ? '\'' + registerOrder.comment + '\'' : null}, 
+                                '${format(new Date(), 'DD.MM.YYYY HH:mm:ss')}', '${format(other.date, 'DD.MM.YYYY HH:mm:ss')}') returning ID into :ID;
+                            insert into JOURNAL_TRANS (ID_EMPLOYEE, ID_SECTOR, ID_JOURNAL, MODIFER)
+                            values (${transfer.ID_EMPLOYEE}, ${transfer.ID_SECTOR}, :ID, ${Math.abs(registerOrder.modiferCount) * -1});
+                            insert into JOURNAL_TRANS (ID_EMPLOYEE, ID_SECTOR, ID_JOURNAL, MODIFER)
+                            values (${accepted.ID_EMPLOYEE}, ${accepted.ID_SECTOR}, :ID, ${Math.abs(registerOrder.modiferCount)});
+                            insert into cost_of_work (id_journal, id_work_price, price)
+                            select :ID as id_journal, p.id as id_price, p.price from work_prices p
+                            where p.id_sector = ${transfer.ID_SECTOR};
+                            suspend;
+                        end`;
+   
+                const [newJournal] = await db.executeRequest(query);
+
+                // Смена статусов, если указаны.
+                if (dependencies[0].statusAfterOldId) {
+                    const oldStatusNum = await getStatusNumOldToIdStatusOld(dependencies[0].statusAfterOldId);
+                    if (oldStatusNum) await db.executeRequest(`update ORDERS O set O.ORDER_STATUS = ${oldStatusNum} where O.ID = ${order.id}`);
+                }
+                if (dependencies[0].statusAfterId) {
+                    await db.executeRequest(`INSERT INTO JOURNAL_STATUS_LIST (ID_ORDER, ID_JOURNAL, ID_STATUS)
+                                             VALUES(${order.id}, ${newJournal.ID}, ${dependencies[0].statusAfterId})`);
+                }
+
             }
             const countOrders = registerOrders.filter(o => o.completed).length;
             let resultMessage = `${countOrders ? '☑️ Принято ' + countOrders + ' из ' + registerOrders.length : '❌ Не один из заказов не принят.'}`;
