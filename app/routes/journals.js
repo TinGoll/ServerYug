@@ -7,11 +7,56 @@ const jwt                       = require('jsonwebtoken');
 const { users }                 = require('../systems')
 const atOrderQuery              = require('../query/atOrder');
 const jfunction                 = require('../systems/virtualJournalsFun');
+const _                         = require('lodash');
 
 // /api/journals/
 
 const router = Router();
 
+/**Перенести в отдельный роутер */
+// /api/journals/order-report
+router.get(
+    '/order-report/:date',
+    async (req, res) => {
+        try {
+            const date = req.params.date;
+            if (!date) throw new Error('Не корректная дата');
+
+            const query = `
+                  SELECT DISTINCT O.ID, O.ITM_ORDERNUM, GET_SECTOR_NAME(S.ID_NEW_SECTOR) AS SECTOR, P.DATE3 AS DATE_PLAN, GET_SECTOR_NAME(L.ID_SECTOR) AS LOCATION
+                    FROM ORDERS O
+                    LEFT JOIN ORDERS_DATE_PLAN P ON (P.ORDER_ID = O.ID)
+                    LEFT JOIN SECTORS_OLD S ON (UPPER(S.NAME_OLD_SECTOR) = UPPER(P.DATE_DESCRIPTION))
+                    LEFT JOIN SECTORS S2 ON (S.ID_NEW_SECTOR = S2.ID)
+                    LEFT JOIN LOCATION_ORDER L ON (L.ID_ORDER = O.ID AND L.ID_SECTOR = S.ID_NEW_SECTOR)
+                    WHERE P.DATE3 = '${date}'
+                    ORDER BY S2.ORDER_BY`;
+
+            const result = await db.executeRequest(query);
+            const sectors = _.uniqWith( result
+                .filter(s => {
+                    if (s.SECTOR.toUpperCase() == 'Колеровка'.toUpperCase()) return false
+                    if (s.SECTOR.toUpperCase() == 'Шлифовка Станок'.toUpperCase()) return false
+                    return true;
+                })
+                .map(s => {
+                return {name: s.SECTOR, orders: []}
+            }), _.isEqual);
+
+            for (const sector of sectors) {
+                sector.orders = result
+                    .filter(o => o.SECTOR.toUpperCase() == sector.name.toUpperCase())
+                    .map(o => o.ITM_ORDERNUM);
+            }
+            return res.status(200).json({sectors})
+        } catch (e) {
+            console.log(e);
+            res.status(500).json({message: 'Не корректная дата', errors: []})
+        }
+    }
+)
+
+/**Перенести в отдельный роутер */
 // /api/journals/get-journals
 router.get(
     '/get-journals', 
@@ -43,6 +88,7 @@ router.post
             // Проверка токена, получение пользователя.
             let decoded;
             const token = req.get('Authorization');
+
             try {decoded = jwt.verify(token, settings.secretKey);} 
             catch (error) {return res.status(500).json({errors: [error.message], message: 'Некорректный токен'})}
             const user = await users.getUserToID(decoded.userId);
@@ -116,11 +162,9 @@ router.get (
             if(!journal) return res.status(500)
                 .json({errors: ['У тебя нет прав на получение данных этого журнала. Обратись а администатору.'], message: defaultError});
             // Конец проверки прав.
-
             if (find && find > 0) {
                 options.$where =  `${options.$where} and J.ID_JOURNAL_NAMES in (${journal.j.join(', ')})`;
             }
-
             if (dateFirst) options.$where =  `${options.$where} and CAST(J.TS as date) >= '${format(dateFirst, 'DD.MM.YYYY')}'`;
             if (dateSecond) options.$where =  `${options.$where} and CAST(J.TS as date) <= '${format(dateSecond, 'DD.MM.YYYY')}'`;
             if (filter) {
@@ -141,10 +185,10 @@ router.get (
 
             const query         = atOrderQuery.get('get_adopted', options);
             const queryCount    = atOrderQuery.get('get_adopted_pages_count', options);
-
             const orders        = await db.executeRequest(query);
             const [count]       = await db.executeRequest(queryCount);
             const pages         = count.COUNT ? Math.ceil(count.COUNT / options.$first) : 0;
+
             return res.json({orders, count: count.COUNT , pages: pages});
         } catch (error) {
             res.status(500).json({errors:[error.message], message: 'Ошибка запроса: "Принятые заказы".'})
@@ -170,7 +214,6 @@ router.get(
                         .json({errors: ['У тебя нет прав на получение данного журнала. Обратись а администатору.'], message: defaultError});
                 // Проверка прав завершена
                 let journal;
-                
                 switch (parseInt(id)) {
                     case 1:
                         journal = await jfunction.getJournalToId(id);
@@ -187,7 +230,6 @@ router.get(
                     default:
                         break;
                 }
-
                 if (!journal) return res.status(500).json({errors: ['Такой журнал не существует.'], message: defaultError});
                 //if (!journal) return res.json({arr:[]});
                 return res.json({journal});

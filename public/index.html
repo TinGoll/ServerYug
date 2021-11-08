@@ -112,14 +112,30 @@
                 </td>
               </tr>
 
-
-
+              <tr class="body-td">
+                <td class="body-cell">http://192.168.2.10:3131/api/extra-data/get</td>
+                <td>
+                    <b class="post-query">POST Запрос</b>: Получение списка дополнительных параметров к принятым заказам в журналах.<br>
+                    <b>body:</b>  {"barcodeTransfer", "barcodeAccepted"}
+                </td>
+              </tr>
 
               <tr class="body-td">
                 <td class="body-cell">http://192.168.2.10:3131/api/at-order/add</td>
                 <td>
                     <b class="post-query">POST Запрос</b>: Добавляет запись в журнал.<br>
-                    <b>body:</b> <code>"idTransfer", "idAccepted", "orders"</code>
+                    <b>body:</b> <code>"idTransfer", "idAccepted", "orders", "extraData []"</code> </b>
+                    <pre>
+Объект extraData
+[{
+    orderId:    number;
+    journalId:  number;
+    group string; 
+    type: string;
+    name: string;
+    data: string;
+}]
+                    </pre>
                 </td>
               </tr>
 

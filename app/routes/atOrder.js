@@ -70,6 +70,7 @@ router.get(
             if(!journal) return res.status(500)
                 .json({errors: ['У тебя нет прав на получение данных этого журнала. Обратись а администатору.'], message: defaultError});
             // Конец проверки прав.
+            
             const transactions = await db.executeRequest(`
                 select T.ID,
                     cast(T.DATE_ADDED as date) as DATE_ADDED,
@@ -78,10 +79,10 @@ router.get(
                     from OTHER_TRANSACTIONS T2
                     where T2.ID_TRANSACTION = T.ID)) as decimal(8,2)) as MONEY
                 from SALARY_TRANS_EL E
-                left join JOURNALS J on (E.ID_JOURNAL = J.ID)
-                left join SALARY_TRANSACTION T on (E.ID_TRANSACTION = T.ID)
-                left join COST_OF_WORK W on (W.ID_JOURNAL = J.ID)
-                left join ORDERS O on (J.ID_ORDER = O.ID)
+                    left join JOURNALS J on (E.ID_JOURNAL = J.ID)
+                    left join SALARY_TRANSACTION T on (E.ID_TRANSACTION = T.ID)
+                    left join COST_OF_WORK W on (W.ID_JOURNAL = J.ID)
+                    left join ORDERS O on (J.ID_ORDER = O.ID)
                 where J.ID_JOURNAL_NAMES in (${journal.j.join(', ')})
                 group by T.ID, T.DATE_ADDED, T.NAME
                 order by T.DATE_ADDED desc
@@ -90,7 +91,7 @@ router.get(
                     return res.status(500).json({errors: ['List empty'], message: 'Список пуст.'});
             return res.status(200).json({transactions});
         } catch (error) {
-            console.log(error);
+            console.log('salary-transactions::', error);
             return res.status(500).json({errors: [error.message], message: 'Ошибка запроса: Get transactions'});
         }
     }
@@ -118,14 +119,18 @@ router.get(
                 where T.ID = ${idTrans}
                 order by O.ID, P.NUM_SORT`
             );
+
             const sectors = [];
             if (salary.length == 0) return res.status(200).json({sectors});
-            const sectorsName = [...new Set(salary.map(s => s.SECTOR))];
+            const sectorsName = [...new Set(salary.map(s => s.SECTOR))].filter(s => {
+                return s != null || s != undefined;
+            });
+            
             for (const sectorName of sectorsName) {
-                const ordersId  = [...new Set(salary.filter(o => o.SECTOR == sectorName).map(o => o.ID))];
-                const sectorID = salary.find(s => s.SECTOR == sectorsName).ID_SECTOR;
-                const sector = {id: sectorID, name: sectorName, otherTransactoins: {}, orders: []}
 
+                const ordersId  = [...new Set(salary.filter(o => o.SECTOR == sectorName).map(o => o.ID))];
+                const sectorID = salary.find(s => s.SECTOR == sectorsName)?.ID_SECTOR;
+                const sector = {id: sectorID, name: sectorName, otherTransactoins: {}, orders: []};
                 const otherTrans = await db.executeRequest(`select T.NAME, T.DESCRIPTION, T.AMOUNT, T.MODIFER, T.TRANS_COMMENT
                                                         from OTHER_TRANSACTIONS T
                                                         where T.ID_TRANSACTION = ${idTrans} and T.ID_SECTOR = ${sectorID}`);
@@ -142,11 +147,12 @@ router.get(
                         })
                     ] 
                 }
-                
+            
                 for (const id of ordersId) {
                     const idJournal = salary.find(s => s.ID == id).ID_JOIRNAL;
                     const itmOrderNum = salary.find(s => s.ID == id).ITM_ORDERNUM;
-                    const works = salary.filter(o => o.ID == id).map(w => {
+                    
+                    const works = salary.filter(o => o.ID == id && (o.ID_WORK != null || o.ID_WORK != undefined)).map(w => {
                         return {
                             workOfCostId:   w.ID_WORK_OF_COST,
                             workId:         w.ID_WORK,
@@ -156,7 +162,7 @@ router.get(
                             money:          w.MONEY
                         }
                     });
-
+                
                     const order = {id, itmOrderNum, idJournal, works};
                     sector.orders.push(order);
                 }
@@ -164,7 +170,7 @@ router.get(
             }
             return res.status(200).json({sectors});
         } catch (error) {
-            console.log(error);
+            console.log('salary-report::', error);
             return res.status(500).json({errors: [error.message], message: defaultError});
         }
     }
@@ -191,8 +197,10 @@ router.get(
             // Проверка прав
             const journals = await jfunction.permissionSet(user); // доступные журналы.
             const journal = journals.find(j => j.id == idJournalName);
+
             if(!journal) return res.status(500)
                 .json({errors: ['У тебя нет прав на получение данных по расчетному периоду. Обратись к администатору.'], message: defaultError});
+
             // Конец проверки прав.
             const query = `select O.ID, O.ITM_ORDERNUM, J.ID as ID_JOIRNAL, P.ID_SECTOR, S.NAME as SECTOR, 
                             W.ID as ID_WORK_OF_COST, P.ID as ID_WORK, P.NAME as WORK_NAME,
@@ -207,11 +215,16 @@ router.get(
                                 left join SALARY_TRANS_EL E on (E.ID_JOURNAL = J.ID)
                                 where ${await user.permissionCompare(permissions[0]) ? '' : '(P.OPTIONAL != -1) and'}
                                 E.ID is null and j.id_journal_names in (${journal.j.join(', ')})`;
+
             const isCanEditAllWorks = await user.permissionCompare(permissions[1]);
             const salary = await db.executeRequest(query);
             const sectors = [];
+
             if (salary.length == 0) return res.status(500).json({errors: ['В текущем периоде, по этому журналу нет принятых заказов.'], message: 'Список пуст'});
-            const sectorsName = [...new Set(salary.map(s => s.SECTOR))];
+            const sectorsName = [...new Set(salary.map(s => s.SECTOR))].filter(s => {
+                return s != null || s != undefined;
+            });
+
             for (const sectorName of sectorsName) {
                 const ordersId  = [...new Set(salary.filter(o => o.SECTOR == sectorName).map(o => o.ID))];
                 const sectorID = salary.find(s => s.SECTOR == sectorName).ID_SECTOR;
@@ -219,7 +232,8 @@ router.get(
                 for (const id of ordersId) {
                     const idJournal = salary.find(s => s.ID == id).ID_JOIRNAL;
                     const itmOrderNum = salary.find(s => s.ID == id).ITM_ORDERNUM;
-                    const works = salary.filter(o => o.ID == id).map(w => {
+
+                    const works = salary.filter(o => o.ID == id && (o.ID_WORK != null || o.ID_WORK != undefined)).map(w => {
                         let checkOptional = w.OPTIONAL;
                         if(isCanEditAllWorks) checkOptional = -1;
                         return {
@@ -255,6 +269,7 @@ router.get(
                     data: []
                 }
                 sectors.push(sector);
+
             }
             return res.status(200).json({sectors});
         } catch (error) {
@@ -402,7 +417,7 @@ router.post(
             if (!errors.isEmpty()) return res.status(500)
                         .json({errors: errors.array(), message: defaultError});
             // получаем необходимые данные body/
-            const {idTransfer: transferBarcode, idAccepted: acceptedBarcode, orders: registerOrders, ...other} = req.body;
+            const {idTransfer: transferBarcode, idAccepted: acceptedBarcode, orders: registerOrders, extraData, ...other} = req.body;
             // Если массив заказов пустой
             if (!Array.isArray(registerOrders) || registerOrders.length <= 0) return res.status(500)
                         .json({errors: ['Нет заказов для передачи.'], message: defaultError});
@@ -466,11 +481,15 @@ router.post(
                     O.ID, O.ITM_ORDERNUM, S.ID AS OLD_STATUS_ID, S.STATUS_DESCRIPTION,
                     GET_JSTATUS_ID(O.ID) AS STATUS_ID,
                     J.ID AS JOURNAL_ID, N.NAME AS JOURNAL_NAME
-                FROM ORDERS O
+                FROM ORDERS_IN_PROGRESS O
                     LEFT JOIN LIST_STATUSES S ON (O.ORDER_STATUS = S.STATUS_NUM)
-                    LEFT JOIN JOURNALS J ON (J.ID_ORDER = O.ID)
+                    LEFT JOIN JOURNALS J ON (J.ID_ORDER = O.ID and EXISTS (
+                    select t.id from journal_trans t
+                    where t.id_journal = j.id and ((t.id_sector = ${transfer.ID_SECTOR} and t.modifer < 0) OR (t.id_sector = ${accepted.ID_SECTOR} and t.modifer > 0))
+                    ))
                     LEFT JOIN JOURNAL_NAMES N ON (J.ID_JOURNAL_NAMES = N.ID)
-                    WHERE O.ID IN (${orderListString})`;
+                WHERE O.ID IN (${orderListString})`;
+    
             const orderWorks = (await db.executeRequest(`
                         SELECT P.ID, P.ORDER_ID, P.DATE_SECTOR, P.DATE_DESCRIPTION, P.COMMENT, P.DATE1, P.DATE2, P.DATE3
                         FROM ORDERS_DATE_PLAN P
@@ -488,14 +507,13 @@ router.post(
                     }
                 });
             const orderLocations = (await db.executeRequest(`
-                SELECT L.ID_ORDER, L.ID_EMPLOYEE, L.ID_SECTOR, L.MODIFER
+                SELECT L.ID_ORDER, L.ID_SECTOR, L.MODIFER
                 FROM LOCATION_ORDER L
                 WHERE L.ID_ORDER IN (${orderListString}) AND L.ID_SECTOR = ${transfer.ID_SECTOR}
             `))
             .map(l => {
                 return {
                     orderId: l.ID_ORDER,
-                    employeeId: l.ID_EMPLOYEE,
                     sectorId: l.ID_SECTOR,
                     modifer: l.MODIFER
                 }
@@ -515,9 +533,9 @@ router.post(
                     locations,
                 }
             });
-         
-            for (const order of orders) {
-                const registerOrder =  registerOrders.find(o => o.idOrder == order.id);
+                                  
+            for (const registerOrder of registerOrders) {
+                const order = orders.find(o => o.id == registerOrder.idOrder)
                 registerOrder.completed = true;
                 registerOrder.description = `успешно`;
 
@@ -584,6 +602,11 @@ router.post(
                 }
 
             }
+
+            if (extraData && extraData?.length) {
+                const countExtraData = await extraSystem(extraData);
+            }
+
             const countOrders = registerOrders.filter(o => o.completed).length;
             let resultMessage = `${countOrders ? '☑️ Принято ' + countOrders + ' из ' + registerOrders.length : '❌ Не один из заказов не принят.'}`;
             if (countOrders == registerOrders.length)  resultMessage = `✅ Все заказы приняты. (${registerOrders.length})`

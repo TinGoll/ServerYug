@@ -385,7 +385,7 @@ const getOneOrder = async  (req, res) => {
                 amount:         b.EL_COUNT,
                 square:         b.SQUARE,
                 comment:        b.COMMENT,
-                unit:           b.MEASURE_UNIT
+                unit:           b.MEASURE_UNIT?.replace('м2', 'м²')
             }
             // Отображение согласно прав.
             if (isViewCost) {           body.cost           = b.COST; 

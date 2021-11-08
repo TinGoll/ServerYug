@@ -24,6 +24,8 @@ config.routersAuth(app, '/api');
 config.routesAtOrder(app, '/api');
 config.routesJournals(app, '/api');
 config.routesUsers(app, '/api');
+config.routesExtraData(app, '/api');
+
 
 config.express(app);
 config.routesPackages(app);

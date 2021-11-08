@@ -14,6 +14,17 @@ const { links }    = require('../systems');
 
 const router = Router();
 
+router.post(
+    '', 
+    async (req, res) => {
+        try {
+            
+        } catch (error) {
+            
+        }
+    }
+);
+
 // /api/auth/register
 router.post(
     '/register',
@@ -77,8 +88,10 @@ router.post(
                     where upper(B.BARCODE) = upper('${barcode}')`;
                 const [code] = await db.executeRequest(query);
                 if (!code) return res.status(400).json({errors: ['Barcode is not found'], message: `Не корректный штрих - код.`});
+
                 if (!code.ID_EMPLOYERS || !code.ID_SECTOR || code.ID_SECTOR == 14) 
                             return res.status(400).json({errors: ['Barcode not activated'], message: `Карточка не активирована, обратитесь к администрации.`});
+
                 if (parseInt(code.STATUS) != 0) return res.status(400).json({errors: ['Card blocked'], message: `Карточка заблокирована, обратитесь к администрации.`});
                 user = await users.getUserToID(code.ID_EMPLOYERS);
                 if (!user) return res.status(400).json({errors: ['User is not found'], message: `Пользователь по данному штрихкоду не найден.`});
@@ -94,7 +107,7 @@ router.post(
             const token = jwt.sign(
                 {userId: user.id},
                 settings.secretKey,
-                {expiresIn: '8h'}
+                {expiresIn: '10h'}
             )
             //console.log(token)
             //user.setToken(token);
