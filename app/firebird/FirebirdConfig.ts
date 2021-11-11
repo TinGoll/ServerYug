@@ -1,11 +1,11 @@
 import path from 'path';
 
 export default class FirebirdConfig {
-    username?:string    = process.env.ISC_FB_USER;
-    password?:string    = process.env.ISC_FB_PASSWORD;
-    host?:string        = process.env.NODE_FB_HOST;
-    port?:string        = process.env.NODE_FB_PORT;
-    tmpDir?:string      = process.env.NODE_FB_TMP_DIR;
+    username?:string    = 'ITM';
+    password?:string    = 'AdmUser';
+    host?:string        = '192.168.2.101';
+    port?:string        = '3050';
+    tmpDir?:string      = '/mnt/2T/Archive/Work/FireBird DB/itm/data base/';
     rootPath: string;
 
     //rootPath: string;
@@ -14,7 +14,7 @@ export default class FirebirdConfig {
     }
 
     create(name: string): string {
-        const database = `${this.rootPath}/${this.tmpDir}/${name}`;
+        const database = `${this.tmpDir}/${name}`;
         return (this.host ?? '') +
         (this.host && this.port ? `/${this.port}` : '') +
         (this.host ? ':' : '') +
