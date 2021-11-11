@@ -1,0 +1,115 @@
+// Комментарий в журналах.
+export declare interface JournalCommentDto {
+    orderId: number;
+    dataId: number;
+    text: string;
+}
+
+export declare interface JournalSectorDto {
+    id: number; 
+    name: string;
+    overdue: JournalOrderDto [], 
+    forToday: JournalOrderDto [], 
+    forFuture: JournalOrderDto []
+}
+
+export declare interface JournalOrderDto {
+    id: number;
+    itmOrderNum: string;
+    sectorId: number; 
+    sectorName: string;
+    nameSectorInOrder:  string;
+    datePlan: Date;
+    fasadSquare: number;
+    generalSquare: number;
+    workingTime: number
+    data: any;
+}
+
+export declare interface JournalPlansDb {
+    ORDER_ID: number;
+    DATE_SECTOR: string;
+    DATE_DESCRIPTION: string;
+    COMMENT: string;
+    DATE1: Date;
+    DATE2: Date;
+    DATE3: Date;
+}
+
+export declare interface JournalStatusListOldDb {
+    ID : number;
+    STATUS_NUM: number;
+    STATUS_DESCRIPTION: string;
+}
+
+export declare interface JournalSectorList {
+    id: number;
+    name: string;
+    orderBy: number;
+}
+
+export declare interface JournalPlans {
+    id: number;              
+    orderId: number;          
+    dateSector: string;     
+    dateDescription: string;  
+    comment: string;           
+    date1: Date;             
+    date2: Date;             
+    date3: Date;              
+}
+
+export declare interface JournalPermission {
+     name: string;
+     data: JournalName[];
+}
+
+export declare interface  JournalName {
+    id: number; 
+    name: string;
+    j: number[];
+}
+
+export declare interface JournalTransactionsDb {
+    ID: number;
+    DATE_ADDED: Date;
+    NAME: string;
+    MONEY: number;
+}
+
+export declare interface JournalSalaryDb {
+    ID: number;
+    ITM_ORDERNUM: string;
+    ID_JOIRNAL: number;
+    ID_SECTOR: number;
+    SECTOR: string;
+    ID_WORK_OF_COST: number;
+    ID_WORK: number;
+    WORK_NAME: string;
+    ORDER_FASADSQ: number;
+    PRICE: number;
+    MONEY: number;
+}
+
+export declare interface JournalOtherTransDb {
+    NAME: string;
+    DESCRIPTION: string;
+    AMOUNT: number; 
+    MODIFER: number;
+    TRANS_COMMENT: string
+}
+export declare interface JournalOtherTrans {
+    userName: string;
+    description: string;
+    amount: number;
+    comment: string;
+    modifer: number;
+}
+
+export declare interface SalarySectorDto {
+    id: number;
+    journalNameId?: number;
+    name: string;
+    otherTransactoins: any;
+    orders: any[];
+}

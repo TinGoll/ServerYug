@@ -4,14 +4,22 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "nodemon index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node dist/index.js",
+    "dev": "nodemon index.ts",
+    "build": "tsc -p ."
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@types/bcryptjs": "^2.4.2",
+    "@types/body-parser": "^1.19.1",
     "@types/express": "^4.17.13",
+    "@types/express-validator": "^3.0.0",
+    "@types/jsonwebtoken": "^8.5.5",
+    "@types/lodash": "^4.14.176",
+    "@types/node": "^16.11.6",
+    "@types/uuid": "^8.3.1",
     "axios": "^0.21.1",
     "bcryptjs": "^2.4.3",
     "body-parser": "^1.19.0",
@@ -25,6 +33,7 @@
     "node-firebird": "^0.9.9"
   },
   "devDependencies": {
-    "nodemon": "^2.0.12"
+    "nodemon": "^2.0.12",
+    "typescript": "^4.4.4"
   }
 }
