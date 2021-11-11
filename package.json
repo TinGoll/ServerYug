@@ -30,7 +30,8 @@
     "lodash": "^4.17.21",
     "materialize-css": "^1.0.0-rc.2",
     "node-fetch": "^2.6.1",
-    "node-firebird": "^0.9.9"
+    "node-firebird": "^0.9.9",
+    "node-firebird-driver-native": "^2.3.0"
   },
   "devDependencies": {
     "nodemon": "^2.0.12",
