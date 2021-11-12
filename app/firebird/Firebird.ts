@@ -38,7 +38,7 @@ export default class Firebird {
     }
 
     
-    async executeOneRequest<T extends object> (query: string, par: any[]): Promise<T[]> {
+    async executeOneRequest<T extends object> (query: string, par: any[] = []): Promise<T[]> {
         try {
             const attachment = await this.connect();
             const transaction = await attachment.startTransaction();
@@ -60,7 +60,7 @@ export default class Firebird {
             throw e;
         }
     }
-    async executeOneAndReturning<T extends object> (query: string, par: any[]): Promise<T> {
+    async executeOneAndReturning<T extends object> (query: string, par: any[] = []): Promise<T> {
         try {
             const attachment = await this.connect();
             const transaction = await attachment.startTransaction();
@@ -81,7 +81,7 @@ export default class Firebird {
         }
     }
 
-    async executeAllAndReturning (query: string, par: FirebirdQueryParameters[]): Promise<FirebirdQueryParameters[]> {
+    async executeAllAndReturning (query: string, par: FirebirdQueryParameters[] = []): Promise<FirebirdQueryParameters[]> {
          try {
             const attachment = await this.connect();
             const transaction = await attachment.startTransaction();

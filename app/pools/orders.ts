@@ -1,11 +1,7 @@
-import firebird from 'node-firebird';
-import options from '../../config/.firebirdDB/settingsDB';
 import ordersQuery from '../query/orders';
-import listsData from '../assets/lists';
 import fs from 'fs';
 import db from '../dataBase';
 import path from 'path';
-const pool               = firebird.pool(5, options);
 const __dirn             = path.resolve();
 import _ from 'lodash';
 import jwt from 'jsonwebtoken';
@@ -17,8 +13,8 @@ import { QueryOptions } from '../types/queryTypes';
 import { OrderBody, OrderHeader } from '../types/orderTypes';
 import User from '../entities/User';
 import users from '../systems/users';
-
-
+import Firebird, { Base } from '../firebird';
+import { FirebirdQueryParameters } from '../firebird/types';
 
 
 // Получение всех заказов, лимит по умолчанию - 100
@@ -440,6 +436,66 @@ const getDataHeaderForCreateOrder = async (req: Request, res: Response, next: Ne
     
 }
 
+const getTest = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        console.log('START');
+        
+        const CountRow = 1000;
+        const startTimeOldDB = new Date().getTime();
+      
+        // Тест 1 Старый метод
+        
+        for (let i = 0; i < CountRow; i++) {
+            const res = await db.executeRequest(`INSERT INTO TEST (I) VALUES (${i}) RETURNING ID`) as any;
+        }
+        
+       const endTimeOldDB =  new Date().getTime();
+      
+
+        // Тест 2 Новый метод
+        const startTimeNewDB2 =  new Date().getTime();
+        const dbNew = new Firebird(Base.ITM);
+        const attachment = await dbNew.connect();
+        const transaction = await attachment.startTransaction();
+
+        const statment = await attachment.prepare(transaction, `INSERT INTO TEST (I) VALUES (?) RETURNING ID`);
+
+        for (let i = 0; i < CountRow; i++) {
+            await statment.execute(transaction, [i]);
+        }
+        await transaction.commit();
+        await statment.dispose();
+        await attachment.disconnect();
+        await dbNew.dispouse();
+        const endTimeNewDB2 =  new Date().getTime();
+
+        // Тест 3 Новый метод с оберткой
+        const startTimeNewDB3 =  new Date().getTime();
+
+        const dbNewErapper = new Firebird(Base.ITM);
+
+        const arr:FirebirdQueryParameters[] = [];
+        for (let i: number = 0; i < CountRow; i++) {
+            const param: FirebirdQueryParameters = {
+                id: 0,
+                index: i,
+                params: [i]
+            }
+            arr.push(param);
+        }
+        await dbNewErapper.executeAllAndReturning(`INSERT INTO TEST (I) VALUES (?) RETURNING ID`, arr);
+        dbNewErapper.dispouse();
+
+
+        const endTimeNewDB3 =  new Date().getTime();
+        res.status(200).json({old: ((endTimeOldDB - startTimeOldDB) / 1000), new: ((endTimeNewDB2 -startTimeNewDB2)/1000),  new2:((endTimeNewDB3 - startTimeNewDB3) / 1000)})
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({error: (error as Error).message})
+        
+    }
+}
+
 const getdefaultSample = (): string => {
     try {
         const files = fs.readdirSync(__dirn + '/app/assets/images/default/');
@@ -448,11 +504,14 @@ const getdefaultSample = (): string => {
     } catch (error) {throw error}
 }
 
+
+
 export default {
     getAllOrders,
     getOneOrder,
     getImageTest,
     getSampleForOrder,
     orderExists,
-    getDataHeaderForCreateOrder
+    getDataHeaderForCreateOrder,
+    getTest
 }

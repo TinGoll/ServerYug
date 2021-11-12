@@ -9,4 +9,5 @@ export default (app: Application, url: string = ''): void => {
     app.get("/testimage", orders.getImageTest);
     app.get("/orders/sample/:id", orders.getSampleForOrder);
     app.get("/lists", orders.getDataHeaderForCreateOrder);
+    app.get("/test", orders.getTest);
 };

@@ -7,7 +7,7 @@ import { JournalName, JournalOrderDto, JournalPermission, JournalPlans, JournalP
 
 const statusList: JournalStatusListOldDb[] = [];  // Статусы
 const sectorsList: JournalSectorList[] = []; // Сектора
-const userList = [];    // Пользователи
+const userList: User[] = [];    // Пользователи
 
 // Права журнала
 const journals: JournalName[] = [
@@ -156,7 +156,6 @@ const workTime = (startDate: Date): number => {
     return (res < 0 ? 0 : res);
 };
 
-
 const getJournalToId = async (id: number): Promise<JournalSectorDto[]> => {
     try {
         const sectorsDep: any[] = await db.executeRequest(`SELECT DISTINCT D.ID_SECTOR_TRANSFER FROM JOURNAL_DEP D WHERE D.ID_JOURNAL_NAME = ${id}`);
@@ -258,14 +257,12 @@ const getJournalToId = async (id: number): Promise<JournalSectorDto[]> => {
 
 const journalSborka = async () => {
     try {
-
         let query = `select * from REPORT_SBORKA (1);`
         const overdue = await db.executeRequest(query);
         query = `select * from REPORT_SBORKA (2);`
         const forToday = await db.executeRequest(query);
         query = `select * from REPORT_SBORKA (3);`
         const forFuture = await db.executeRequest(query);
-
         return {overdue, forToday, forFuture}
     } catch (error) {
         throw error;

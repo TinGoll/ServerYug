@@ -1,8 +1,8 @@
-const db = require('../dataBase');
-const {format} = require('date-format-parse');
+import db from '../dataBase';
+import { format } from 'date-format-parse';
 
 
-const deffinePermission = async (db) => {
+const deffinePermission = async (db: any) => {
     const permissionGroup = [
         {id: 1, name: 'Гость'},
         {id: 2, name: 'Менеджер'},
@@ -87,7 +87,7 @@ const deffinePermission = async (db) => {
 
 //deffinePermission(db);
 
-const fun = async (db) => {
+const fun = async (db: any) => {
     let query = `select T.ID from salary_transaction t where t.transaction_completed = 1 and t.id > 832`
     const transactions = await db.executeRequest(query);
 
