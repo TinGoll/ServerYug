@@ -1,6 +1,6 @@
 import Firebird from 'node-firebird';
 import options from '../../config/.firebirdDB/settingsDB';
-import { FirebirdPool, FirebirdDatabaseOperation } from './types';
+import { FirebirdPool, FirebirdDatabaseOperation } from '../firebird/types';
 
 const pool: FirebirdPool = Firebird.pool(5, options);
 

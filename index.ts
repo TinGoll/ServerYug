@@ -1,6 +1,6 @@
 import express, { Application, NextFunction, Request, Response } from 'express';
+import { errorMiddleware } from './app/middlewares/error-middleware';
 import config  from './config/index'
-
 
 const app: Application = express();
 
@@ -23,6 +23,9 @@ config.routesJournals(app, '/api');
 config.routesUsers(app, '/api');
 config.routesExtraData(app, '/api');
 config.routesOrders(app);
+
+// Обработка ошибок.
+app.use(errorMiddleware);
 
 app.listen(config.port, () => {
     console.log(`Сервер запущен на порту ${config.port}`);

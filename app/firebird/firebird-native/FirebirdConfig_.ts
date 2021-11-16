@@ -1,3 +1,4 @@
+/*
 import path from 'path';
 
 export default class FirebirdConfig {
@@ -26,3 +27,5 @@ export default class FirebirdConfig {
         this.host == '127.0.0.1';
     }
 }
+
+*/

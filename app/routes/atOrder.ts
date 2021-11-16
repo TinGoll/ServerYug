@@ -3,14 +3,13 @@ import db from '../dataBase';
 import atOrderQuery from '../query/atOrder';
 import { check, validationResult } from 'express-validator';
 import { format } from 'date-format-parse';
-import settings from '../settings';
-import jwt from 'jsonwebtoken';
 import jfunction from '../systems/virtualJournalsFun';
 import { BarcodesDb } from '../types/orderTypes';
-import { decodedDto } from '../types/user';
 import { JournalOtherTransDb, JournalSalaryDb, JournalTransactionsDb, SalarySectorDto } from '../types/journalTypes';
 import extraSystem from '../systems/extradata-system';
-import users from '../systems/users';
+import users, { getUserToToken } from '../systems/users';
+import ApiError from '../exceptions/ApiError';
+import User from '../entities/User';
 
 
 
@@ -27,10 +26,7 @@ router.get(
             const query: string = atOrderQuery.get('get_barcodes');
             const barcodes: BarcodesDb[] = await db.executeRequest(query);
             return res.status(200).json({barcodes});
-        } catch (error) {
-            const e = error as Error;
-            return res.status(500).json({errors: [e.message], message: 'Ошибка запроса: Get barcodes'});
-        }
+        } catch (e) {next(e);}
     }
 );
 // /api/at-order/journal-names
@@ -41,10 +37,7 @@ router.get(
             const query: string = atOrderQuery.get('get_barcodes');
             let barcodes: BarcodesDb[]  = await db.executeRequest(query);
             return res.status(200).json({barcodes});
-        } catch (error) {
-            const e = error as Error;
-            return res.status(500).json({errors: [e.message], message: 'Ошибка запроса: Get barcodes'});
-        }
+        } catch (e) {next(e);}
     }
 );
 // /api/at-order/salary-transactions/1
@@ -52,23 +45,17 @@ router.get(
     '/salary-transactions/:id',
     async (req: Request, res: Response, next: NextFunction) => {
         try {
+
             const idJournalName: number | undefined =  req.params.id as any;
             const defaultError: string = 'Не достаточно прав.';
             // Проверка токена, получение пользователя.
-            let decoded: decodedDto;
-            const token = req.get('Authorization');
-            if(!token) throw new Error('Некорректный токен');
-            try {decoded = jwt.verify(token, settings.secretKey) as any;}
-            catch (error) {return res.status(500).json({errors: [(error as Error).message], message: 'Ошибка авторизации.'})}
-            const user = await users.getUserToID(decoded.userId);
-            if(!user) throw new Error('Некорректный токен');
+            const user: User = await getUserToToken(req.get('Authorization'));
             // Конец проверки токена.
             // Проверка прав
-            if(!idJournalName) throw new Error('Не корректный id журнала.');
+            if(!idJournalName) throw ApiError.BadRequest('Не корректный ID журнала.')
             const journals = await jfunction.permissionSet(user);
             const journal = journals.find(j => j.id == idJournalName); // получаем обект журнала.
-            if(!journal) return res.status(500)
-                .json({errors: ['У тебя нет прав на получение данных этого журнала. Обратись а администатору.'], message: defaultError});
+            if(!journal) throw ApiError.Forbidden(['У тебя нет прав на получение данных этого журнала. Обратись а администатору.']);
             // Конец проверки прав.
             
             const transactions: JournalTransactionsDb[] = await db.executeRequest(`
@@ -87,14 +74,9 @@ router.get(
                 group by T.ID, T.DATE_ADDED, T.NAME
                 order by T.DATE_ADDED desc
             `);
-            if (!transactions || transactions.length == 0) 
-                    return res.status(500).json({errors: ['List empty'], message: 'Список пуст.'});
+            if (!transactions || transactions.length == 0) throw ApiError.BadRequest('Список пуст.')
             return res.status(200).json({transactions});
-        } catch (error) {
-            const e = error as Error;
-            console.log('salary-transactions::', e);
-            return res.status(500).json({errors: [e.message], message: 'Ошибка запроса: Get transactions'});
-        }
+        } catch (e) {next(e);}
     }
 );
 // /api/at-order/salary-report/:idtransaction
@@ -104,6 +86,9 @@ router.get(
     async (req: Request, res: Response, next: NextFunction) => {
         const defaultError = `При получаении данных по транзакции, произошла ошибка.`;
         try {
+            // Проверка токена, получение пользователя.
+             const user: User = await getUserToToken(req.get('Authorization'));
+            // Конец проверки токена.
             const idTrans: number | undefined =  req.params.idtransaction as any;
             const salary: JournalSalaryDb[] = await db.executeRequest(`
                 select O.ID, O.ITM_ORDERNUM, J.ID as ID_JOIRNAL, P.ID_SECTOR, S.NAME as SECTOR, 
@@ -168,15 +153,12 @@ router.get(
                 sectors.push(sector);
             }
             return res.status(200).json({sectors});
-        } catch (error) {
-            const e = error as Error;
-            console.log('salary-report::', e);
-            return res.status(500).json({errors: [e.message], message: defaultError});
-        }
+        } catch (e) {next(e);}
     }
 );
 //  Preliminary calculation
 // /api/at-order/preliminary-calculation/:id
+
 router.get(
     '/preliminary-calculation/:id',
     async (req: Request, res: Response, next: NextFunction) => {
@@ -188,13 +170,7 @@ router.get(
         const idJournalName: number | undefined =  req.params.id as any;
         try {
             // Проверка токена, получение пользователя.
-            let decoded: decodedDto;
-            const token = req.get('Authorization');
-            if(!token) throw new Error('Некорректный токен');
-            try {decoded = jwt.verify(token, settings.secretKey) as any;}
-            catch (error) {return res.status(500).json({errors: [(error as Error).message], message: 'Ошибка авторизации.'})}
-            const user = await users.getUserToID(decoded.userId);
-            if(!user) throw new Error('Некорректный токен');
+            const user: User = await getUserToToken(req.get('Authorization'));
             // Конец проверки токена.
             // Проверка прав
             if(!idJournalName) throw new Error('Не корректный id журнала.');
@@ -273,11 +249,7 @@ router.get(
 
             }
             return res.status(200).json({sectors});
-        } catch (error) {
-            console.log(error);
-            const e = error as Error;
-            return res.status(500).json({errors: [e.message], message: defaultError});
-        }
+        } catch (e) {next(e);}
     }
 );
 
@@ -289,26 +261,19 @@ router.patch(
         const permissions = [
             'Journals [close-billing-period] patch all'
         ]
-        // Получение пользователя и проверка прав
-        let decoded: decodedDto;
-        const token = req.get('Authorization');
+        // Проверка токена, получение пользователя.
+        const user: User = await getUserToToken(req.get('Authorization'));
+        // Конец проверки токена.
 
-        try {decoded = jwt.verify(token as string, settings.secretKey) as any;} 
-        catch (error) {return res.status(500).json({errors: [(error as Error).message], message: 'Некорректный токен'})}
-        const user = await users.getUserToID(decoded.userId);
-        if(!user) throw new Error('Некорректный токен');
-        if (!await user.permissionCompare(permissions[0])) {
-            return res.status(500)
-                .json({errors: ['У тебя нет прав на закрытие расчетного периода. Обратись к администатору.'], 
-                        message: 'Не достаточно прав.'});
-        }
+        if (!await user.permissionCompare(permissions[0])) 
+                throw ApiError.Forbidden(['У тебя нет прав на закрытие расчетного периода. Обратись к администатору.'])
         // Проверка, есть ли заказы для закрытия периода.
         const {sectors} = req.body as any;
         let isEmpty = true;
         if (sectors && sectors.length) 
             for (const sector of sectors)
                 if (sector && sector?.orders.length) isEmpty = false;
-         if (isEmpty) return res.status(500).json({errors: ['Список пуст.'], message: 'Нет данных.'})
+         if (isEmpty) throw ApiError.BadRequest('Список пуст');
         // Конец проверки.
         try {
             const transaction = await db.executeRequest(`
@@ -397,10 +362,7 @@ router.patch(
             `);
             //Тут добавление в журнал расходов, сделать после запуска.
             return res.status(201).json({transaction});
-        } catch (error) {
-            const e = error as Error;
-            return res.status(500).json({errors: [e.message], message: 'Не удаллось закрыть расчетный период, в связи с ошибкой транзакции.'});
-        }  
+        } catch (e) {next(e);}  
     }
 );
 
@@ -421,11 +383,9 @@ router.post(
             // получаем необходимые данные body/
             const {idTransfer: transferBarcode, idAccepted: acceptedBarcode, orders: registerOrders, extraData, ...other} = req.body;
             // Если массив заказов пустой
-            if (!Array.isArray(registerOrders) || registerOrders.length <= 0) return res.status(500)
-                        .json({errors: ['Нет заказов для передачи.'], message: defaultError});
+            if (!Array.isArray(registerOrders) || registerOrders.length <= 0) throw ApiError.BadRequest(defaultError, ['Нет заказов для передачи.']);
             // Если баркод применающий и передающий, один и тот же            
-            if (transferBarcode == acceptedBarcode) return res.status(500)
-                        .json({errors: ['Нельзя передавать заказ самому себе.'], message: defaultError});
+            if (transferBarcode == acceptedBarcode) throw ApiError.BadRequest(defaultError, ['Нельзя передавать заказ самому себе.']);
             // Получаем все данные по штрихкоду.
             let query = atOrderQuery.get('get_barcodes', {
                 $where: `UPPER(B.BARCODE) = '${transferBarcode.toUpperCase()}' 
@@ -442,7 +402,7 @@ router.post(
             // В случае блокировки штрихкода.
             if (transfer && transfer.BLOCKED != 0) journalErrors.push(`Карточка отправителя заблокирована, пожалуйста обратитесь к руководству.`);
             if (accepted && accepted.BLOCKED != 0) journalErrors.push(`Карточка получателя заблокирована, пожалуйста обратитесь к руководству.`);
-            if (journalErrors.length > 0) return res.status(500).json({errors: journalErrors, message: defaultError});
+            if (journalErrors.length > 0) throw ApiError.BadRequest(defaultError, journalErrors);
 
             // Получаем старое название участка, по id нового участка.
             const namesTransferOldSector  = await jfunction.getNameOldSectorArrToIdNewSector(transfer.ID_SECTOR);
@@ -471,10 +431,10 @@ router.post(
             const isStartingStage = (dependencies.find(d => d.startStage))?.startStage || false;
 
             // Если зависимостей нет, то эти участки не могут передевать заказы друг другу, в таком порядке.
-            if (dependencies.length == 0) return res.status(500).
-                        json({errors: [`Участок ${transfer ? transfer.SECTOR : 
+            if (dependencies.length == 0) throw ApiError.BadRequest(defaultError, 
+                    [`Участок ${transfer ? transfer.SECTOR : 
                                 '"отправитель" не определен и'} не может передавать заказы ${accepted ? 'участку ' + accepted.SECTOR : 
-                                        'не определенному участку.'}`], message: defaultError});    
+                                        'не определенному участку.'}`])
             
             // Проверка заказов.   
             const orderListString = registerOrders.map(o => o.idOrder).join(', ');       
@@ -616,11 +576,7 @@ router.post(
                 message: resultMessage,
                 orders: registerOrders
             });
-        } catch (error) {
-            const e = error as Error;
-            console.log(error);
-            return res.status(500).json({errors: [e.message], message: defaultError});
-        }
+        } catch (e) {next(e);}
     }
 );
 

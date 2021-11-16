@@ -2,18 +2,16 @@ import { NextFunction, Request, Response } from "express";
 
 import { Router } from 'express';
 import db from '../dataBase';
-import { check, validationResult } from 'express-validator';
 import { format } from 'date-format-parse';
-import settings from '../settings';
-import jwt from 'jsonwebtoken';
 import atOrderQuery from '../query/atOrder';
 import jfunction from '../systems/virtualJournalsFun';
 import _ from 'lodash';
-import { decodedDto } from "../types/user";
+
 import { JournalCommentDto, JournalName, JournalSectorDto } from "../types/journalTypes";
 import { QueryOptions } from "../types/queryTypes";
 import User from "../entities/User";
-import users from "../systems/users";
+import { getUserToToken } from "../systems/users";
+import ApiError from "../exceptions/ApiError";
 
 // /api/journals/
 
@@ -33,7 +31,7 @@ router.get(
     async (req: Request, res: Response, next: NextFunction) => {
         try {
             const date: string = req.params.date as string;
-            if (!date) throw new Error('Не корректная дата');
+            if (!date) throw new Error('Некорректная дата');
 
             const query: string = `
                   SELECT DISTINCT O.ID, O.ITM_ORDERNUM, GET_SECTOR_NAME(S.ID_NEW_SECTOR) AS SECTOR, P.DATE3 AS DATE_PLAN, GET_SECTOR_NAME(L.ID_SECTOR) AS LOCATION
@@ -46,11 +44,11 @@ router.get(
                     ORDER BY S2.ORDER_BY`;
 
             const result: ReportForExcelDb[] = await db.executeRequest(query);
-
+      
             const sectors = _.uniqWith( result
                 .filter(s => {
-                    if (s.SECTOR.toUpperCase() == 'Колеровка'.toUpperCase()) return false
-                    if (s.SECTOR.toUpperCase() == 'Шлифовка Станок'.toUpperCase()) return false
+                    if (s.SECTOR?.toUpperCase() == 'Колеровка'.toUpperCase()) return false
+                    if (s.SECTOR?.toUpperCase() == 'Шлифовка Станок'.toUpperCase()) return false
                     return true;
                 })
                 .map(s => {
@@ -59,14 +57,11 @@ router.get(
 
             for (const sector of sectors) {
                 sector.orders = result
-                    .filter(o => o.SECTOR.toUpperCase() == sector.name.toUpperCase())
+                    .filter(o => o.SECTOR?.toUpperCase() == sector.name?.toUpperCase())
                     .map(o => o.ITM_ORDERNUM);
             }
             return res.status(200).json({sectors})
-        } catch (e) {
-            console.log(e);
-            res.status(500).json({message: 'Не корректная дата', errors: []})
-        }
+        } catch (e) {next(e);}
     }
 )
 
@@ -77,24 +72,13 @@ router.get(
     async (req: Request, res: Response, next: NextFunction) => {
         const defaultError: string = 'Ошибка получения списка журналов.';
         try {
-            const token = req.get('Authorization') as string;
-            if (!token) throw new Error('Некорректный токен');
-
-            jwt.verify(token, settings.secretKey, async (err, decoded) => {
-                if (err) return res.status(500)
-                    .json({errors: [err.message], message: 'Токен не действителен.'});
-                if(!decoded) throw new Error();
-                const user: User | null = await users.getUserToID(decoded.userId);
-                if(!user) throw new Error('Некорректный токен');
-                // Проверка прав на получение журналов
-                const journals = await jfunction.permissionSet(user);
-                if (journals.length == 0) return res.status(500).json({errors:['Список журналов пуст.'], message: defaultError})
-                return res.json({journals: journals.filter(j => j.id != 5)}); // Удаляем из списка журнал бухгалтера
-            });
-        } catch (error) {
-            const e = error as Error;
-            return res.status(500).json({errors: [e.message], message: defaultError});
-        }
+            // Проверка токена, получение пользователя.
+            const user: User = await getUserToToken(req.get('Authorization'));
+            // Конец проверки токена.
+            const journals = await jfunction.permissionSet(user);
+            if (journals.length == 0) throw ApiError.BadRequest(defaultError, ['Список журналов пуст.']);
+            return res.json({journals: journals.filter(j => j.id != 5)}); // Удаляем из списка журнал бухгалтера
+        } catch (e) {next(e);}
     }
 )
 
@@ -105,13 +89,7 @@ router.post
     async (req: Request, res: Response, next: NextFunction) => {
         try {
             // Проверка токена, получение пользователя.
-            let decoded: decodedDto;
-            const token = req.get('Authorization');
-            if(!token) throw new Error('Некорректный токен.');
-            try {decoded = jwt.verify(token, settings.secretKey) as decodedDto;} 
-            catch (error) {return res.status(500).json({errors: [(error as Error).message], message: 'Некорректный токен'})}
-            const user = await users.getUserToID(decoded.userId);
-            if(!user) throw new Error('Некорректный токен');
+            const user: User = await getUserToToken(req.get('Authorization'));
             // Конец проверки токена.
             const comment: JournalCommentDto = req.body;
             // Если ID коммента существует, изменяем существующий
@@ -138,10 +116,7 @@ router.post
                 RETURNING ID;
             `) as any;
             return res.status(201).json({dataId: ID});
-        } catch (error) {
-            const e = error as Error;
-            res.status(500).json({errors:[e.message], message: 'Ошибка добавления комментария.'})
-        }
+        } catch (e) {next(e);}
     }
 );
 
@@ -169,21 +144,13 @@ router.get (
             if (sort)   options.$sort = sort; 
 
             // Проверка токена, получение пользователя.
-            let decoded: decodedDto;
-            const token = req.get('Authorization');
-            if (!token) throw new Error('Некорректный токен.');
-            try {decoded = jwt.verify(token, settings.secretKey) as any;} 
-            catch (error) {return res.status(500).json({errors: [(error as Error).message], message: 'Некорректный токен'})}
-            const user = await users.getUserToID(decoded.userId);
-            if(!user) throw new Error('Некорректный токен');
+            const user: User = await getUserToToken(req.get('Authorization'));
             // Конец проверки токена.
 
             // Проверка прав
             const journals = await jfunction.permissionSet(user);
             const journal = journals.find(j => j.id == find);
-            if(!journal) return res.status(500)
-                .json({errors: ['У тебя нет прав на получение данных этого журнала. Обратись а администатору.'], message: defaultError});
-
+            if(!journal) throw ApiError.Forbidden(['У тебя нет прав на получение данных этого журнала. Обратись а администатору.']);
             // Конец проверки прав.
             if (find && find > 0) {
                 options.$where =  `${options.$where} and J.ID_JOURNAL_NAMES in (${journal.j.join(', ')})`;
@@ -213,9 +180,7 @@ router.get (
             const pages         = count.COUNT ? Math.ceil(count.COUNT / (options.$first || 100)) : 0;
 
             return res.json({orders, count: count.COUNT , pages: pages});
-        } catch (error) {
-            res.status(500).json({errors:[(error as Error).message], message: 'Ошибка запроса: "Принятые заказы".'})
-        }
+        } catch (e) {next(e);}
     }
 );
 
@@ -225,47 +190,36 @@ router.get(
         const defaultError = 'Ошибка получения журнала.';
         try {
             const id: number | undefined =  req.params.id as any;
-            const token = req.get('Authorization');
-            if (!token) throw new Error();
-            jwt.verify(token, settings.secretKey, async (err, decoded) => {
-                if (err) return res.status(500)
-                    .json({errors: [err.message], message: 'Токен не действителен.'});
-                // Проверка прав на получение журнала
-                if (!decoded) throw new Error('Некорректный токен.')
-                const user = await users.getUserToID(decoded?.userId);
-                if(!user) throw new Error('Некорректный токен');
-                const journals: JournalName[] = await jfunction.permissionSet(user);
-                const allowed = journals.find(j => j.id == id);
-                if(!allowed) return res.status(500)
-                        .json({errors: ['У тебя нет прав на получение данного журнала. Обратись а администатору.'], message: defaultError});
-                // Проверка прав завершена
-                let journal: JournalSectorDto[] = [];
-                if (!id) return res.status(500).json({errors: ['Некорректный идентификатор журнала.'], message: defaultError})
-                switch (parseInt(id as any)) {
-                    case 1:
-                        journal = await jfunction.getJournalToId(id);
-                        break;
-                    case 2:
-                        journal = await jfunction.getJournalToId(id);
-                        break;
-                    case 3:
-                        journal = await jfunction.getJournalToId(id);
-                        break;
-                    case 4:
-                        journal = await jfunction.getJournalToId(id);
-                        break;
-                    default:
-                        break;
-                }
+            // Проверка токена, получение пользователя.
+            const user: User = await getUserToToken(req.get('Authorization'));
+            // Конец проверки токена.
+            const journals: JournalName[] = await jfunction.permissionSet(user);
+            const allowed = journals.find(j => j.id == id);
+            if(!allowed) throw ApiError.Forbidden(['У тебя нет прав на получение данного журнала. Обратись а администатору.']);
+            // Проверка прав завершена
+            let journal: JournalSectorDto[] = [];
+            if (!id) throw ApiError.BadRequest(defaultError, ['Некорректный идентификатор журнала.']);
 
-                if (journal.length) return res.status(500).json({errors: ['Такой журнал не существует.'], message: defaultError});
-                return res.json({journal});
-            });
+            switch (parseInt(id as any)) {
+                case 1:
+                    journal = await jfunction.getJournalToId(id);
+                    break;
+                case 2:
+                    journal = await jfunction.getJournalToId(id);
+                    break;
+                case 3:
+                    journal = await jfunction.getJournalToId(id);
+                    break;
+                case 4:
+                    journal = await jfunction.getJournalToId(id);
+                    break;
+                default:
+                    break;
+            }
+            if (!journal.length) throw ApiError.BadRequest(defaultError, ['Такой журнал не существует.']);
+            return res.json({journal});
 
-        } catch (error) {
-            const e = error as Error;
-            return res.status(500).json({errors: [e.message], message: defaultError});
-        }
+        } catch (e) {next(e);}
     }
 )
 

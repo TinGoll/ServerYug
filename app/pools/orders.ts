@@ -8,30 +8,23 @@ import jwt from 'jsonwebtoken';
 import jfunction from '../systems/virtualJournalsFun';
 import settings from '../settings';
 import { NextFunction, Request, Response } from 'express';
-import { decodedDto } from "../types/user";
+import { decodedDto, EmployersDb } from "../types/user";
 import { QueryOptions } from '../types/queryTypes';
-import { OrderBody, OrderHeader } from '../types/orderTypes';
+import { IOrderDb, OrderBody, OrderHeader } from '../types/orderTypes';
 import User from '../entities/User';
-import users from '../systems/users';
-import Firebird, { Base } from '../firebird';
-import { FirebirdQueryParameters } from '../firebird/types';
+import users, { getUserToToken } from '../systems/users';
+import { createItmDb } from '../firebird/Firebird';
+import ApiError from '../exceptions/ApiError';
 
 
 // Получение всех заказов, лимит по умолчанию - 100
 const getAllOrders = async (req: Request, res: Response, next: NextFunction) => {
     try {
-       // Проверка токена, получение пользователя.
-            let decoded ;
-            const token: decodedDto = req.get('Authorization') as any;
-            if (token) throw Error('Некорректный токен');
-            try {decoded = jwt.verify(token, settings.secretKey) as any;} 
-            catch (error) {return res.status(500).json({errors: [(error as Error).message], message: 'Некорректный токен'})}
-            const user = await users.getUserToID(decoded?.userId);
-            if (!user) throw new Error('Некорректный токен');
+        // Проверка токена, получение пользователя.
+        const user: User = await getUserToToken(req.get('Authorization'));
         // Конец проверки токена.
         const isGetOrdersAllAllowed = await user.permissionCompare('Orders [orders] get orders all')
-        if (!isGetOrdersAllAllowed) 
-                            return res.status(500).json({errors: ['Не хватает прав, на получение данных журнала заказов.'], message: 'Нет прав.'})
+        if (!isGetOrdersAllAllowed) throw ApiError.Forbidden(['Не хватает прав, на получение данных журнала заказов.'])
 
         let options: QueryOptions     = {...ordersQuery.getdefaultOptions('get_orders')};
         const page      = req.query._page as number | undefined;
@@ -96,12 +89,7 @@ const getAllOrders = async (req: Request, res: Response, next: NextFunction) => 
         const [count] = await db.executeRequest(ordersQuery.get('get_orders_count', options) as string);
         const pages = parseInt(options.$first) > 0 ? Math.ceil(parseInt(count.COUNT) / parseInt(options.$first)) : 0;
         return res.status(200).json({count: parseInt(count.COUNT), pages, orders});
-
-    } catch (error) {
-        const e = error as Error;
-        console.log(e);
-        return res.status(500).json({errors:[e.message], message: 'Ошибка запроса...'})
-    }
+    } catch (e) {next(e);}
 }
 // Конструктор условий по запросу "ORDERS"
 const finderEngine = async (txt: string) => {
@@ -244,9 +232,7 @@ const getImageTest = (req: Request, res: Response, next: NextFunction) => {
         const files = fs.readdirSync(__dirn + '/app/assets/images/');
         const item = files[Math.floor(Math.random()*files.length)];
         res.sendFile(__dirn + '/app/assets/images/' + item);
-    } catch (error) {
-        console.log(error);
-    } 
+    } catch (e) {next(e);} 
 }
 
 // Отправка картинки образца
@@ -278,10 +264,7 @@ const getSampleForOrder = async (req: Request, res: Response, next: NextFunction
             if (!sampleName) return res.sendFile(getdefaultSample());
             return res.sendFile(pathSample + sampleName);
         } catch (error) {return res.sendFile(getdefaultSample());}
-    } catch (error) {
-        console.log(error);
-        return res.sendFile(getdefaultSample());
-    }
+    } catch (e) {next(e);}
 }
 
 const orderExists = async (req: Request, res: Response, next: NextFunction) => {
@@ -304,25 +287,13 @@ const orderExists = async (req: Request, res: Response, next: NextFunction) => {
             }
         });
         return res.status(200).json({order});  
-    } catch (error) {
-        const e = error as Error;
-        console.log(e);
-        return res.status(500).json({errors: [e.message], message: 'Ошибка запроса: orderExists'});
-    }
+    } catch (e) {next(e);}
 }
 
 const getOneOrder = async  (req: Request, res: Response, next: NextFunction) => {
     try {
         // Проверка токена, получение пользователя.
-        let decoded: decodedDto;
-        const token = req.get('Authorization') as any;
-        try {decoded = jwt.verify(token, settings.secretKey) as any;} 
-        catch (error) {
-            const e = error as Error;
-            return res.status(500).json({errors: [e.message], message: 'Некорректный токен'})
-        }
-        const user: User | null = await users.getUserToID(decoded.userId);
-        if (!user) throw new Error('Некорректный токен');
+        const user: User = await getUserToToken(req.get('Authorization'));
         // Конец проверки токена.
 
         let id: number =  req.params.id as any
@@ -336,7 +307,7 @@ const getOneOrder = async  (req: Request, res: Response, next: NextFunction) => 
         options.$where = `ORDER_ID = ${id}`;
         query = ordersQuery.get('get_order_plans', options);
         const resPlans = await db.executeRequest(query);
-        if (!resHeader.length) return res.status(500).json({errors: ['Заказ не найден.'], message: 'Ошибка получения заказа'});
+        if (!resHeader.length) throw ApiError.BadRequest('Заказ не найден.')
 
          // Права пользователей.
         const isViewCity: boolean            = await user.permissionCompare('Orders [orders] get field City');
@@ -417,83 +388,43 @@ const getOneOrder = async  (req: Request, res: Response, next: NextFunction) => 
                 date:       p.DATE3
             }
         });
-
-
         const order = {header, body, plans};
         return res.status(200).json({order});   
-    } catch (error) {
-        const e = error as Error;
-        console.log(e);
-        return res.status(500).json({errors: [e.message], message: 'Ошибка запроса: getOneOrder'});
-    }
+    } catch (e) {next(e);}
 }
 
 const getDataHeaderForCreateOrder = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        res.status(200).json({});
-    } catch (error) {
-    }
+
+        const db = await createItmDb();
+        const result = await db.executeRequest<EmployersDb>(ordersQuery.get('get_employers'));
+        const employers = result.map(e=>e.NAME);
+        db.detach();
+        res.status(200).json({employers});
+    } catch (e) {next(e);}
     
 }
 
 const getTest = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        console.log('START');
-        
-        const CountRow = 1000;
         const startTimeOldDB = new Date().getTime();
       
+        const db = await createItmDb();
+        try {
+            const [order, ...other] = await db.executeRequest<IOrderDb>(`SELECT * FROM ORDERS O WHERE O.MANAGER = ?`, ['Оля']);
+            console.log(other.length);
+            
+            console.log(order.ITM_ORDERNUM);
+        } catch (error) {
+            throw error;
+        }finally {
+            db.detach();
+        }
         // Тест 1 Старый метод
-        
-        for (let i = 0; i < CountRow; i++) {
-            const res = await db.executeRequest(`INSERT INTO TEST (I) VALUES (${i}) RETURNING ID`) as any;
-        }
-        
        const endTimeOldDB =  new Date().getTime();
-      
-
-        // Тест 2 Новый метод
-        const startTimeNewDB2 =  new Date().getTime();
-        const dbNew = new Firebird(Base.ITM);
-        const attachment = await dbNew.connect();
-        const transaction = await attachment.startTransaction();
-
-        const statment = await attachment.prepare(transaction, `INSERT INTO TEST (I) VALUES (?) RETURNING ID`);
-
-        for (let i = 0; i < CountRow; i++) {
-            await statment.execute(transaction, [i]);
-        }
-        await transaction.commit();
-        await statment.dispose();
-        await attachment.disconnect();
-        await dbNew.dispouse();
-        const endTimeNewDB2 =  new Date().getTime();
-
-        // Тест 3 Новый метод с оберткой
-        const startTimeNewDB3 =  new Date().getTime();
-
-        const dbNewErapper = new Firebird(Base.ITM);
-
-        const arr:FirebirdQueryParameters[] = [];
-        for (let i: number = 0; i < CountRow; i++) {
-            const param: FirebirdQueryParameters = {
-                id: 0,
-                index: i,
-                params: [i]
-            }
-            arr.push(param);
-        }
-        await dbNewErapper.executeAllAndReturning(`INSERT INTO TEST (I) VALUES (?) RETURNING ID`, arr);
-        dbNewErapper.dispouse();
-
-
-        const endTimeNewDB3 =  new Date().getTime();
-        res.status(200).json({old: ((endTimeOldDB - startTimeOldDB) / 1000), new: ((endTimeNewDB2 -startTimeNewDB2)/1000),  new2:((endTimeNewDB3 - startTimeNewDB3) / 1000)})
-    } catch (error) {
-        console.log(error);
-        res.status(500).json({error: (error as Error).message})
-        
-    }
+       
+        res.status(200).json({old: ((endTimeOldDB - startTimeOldDB) / 1000)})
+    } catch (e) {next(e);}
 }
 
 const getdefaultSample = (): string => {

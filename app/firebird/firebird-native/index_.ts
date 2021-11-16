@@ -1,3 +1,4 @@
+/*
 import Firebird from "./Firebird";
 
 export enum Base {
@@ -5,3 +6,5 @@ export enum Base {
     ITM     = 'ITM_DB.FDB'
 }
 export default Firebird;
+
+*/

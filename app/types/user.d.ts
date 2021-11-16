@@ -37,3 +37,20 @@ export declare interface PermissionDbDto {
 export declare interface decodedDto {
     userId: number;
 }
+
+export declare interface EmployersDb {
+    MGMT_PASS:            string,
+    ID:                   number,
+    NAME:                 string,
+    ID_SECTOR:            number,
+    DEPARTMENT:           string,
+    STATUS:               number,
+    LOCATION:             string,
+    FIRSTNAME:            string,
+    LASTNAME:             string,
+    MIDDLENAME:           string,
+    BANK_CARD:            string,
+    CARD_HOLDER:          string,
+    PHONE:                string,
+    PERMISSION_GROUP_ID:  number
+}

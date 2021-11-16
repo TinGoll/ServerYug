@@ -1,6 +1,5 @@
 import { NextFunction, Request, Response } from 'express';
 import db from '../dataBase';
-import extraSystem from '../systems/extradata-system';
 import { ExtraData } from '../types/extraDataTypes';
 //const _     = require('lodash');
 
@@ -41,15 +40,15 @@ class BarcodeController {
             }); 
           
             res.status(200).json(extraData);
-        } catch (error) {
-            const e = error as Error;
-            res.status(500).json({message: 'Ошибка запроса на получение дополнительный параметров.', errors: [e.message]})
-        }
+        } catch (e) {next(e);}
 
     }
 
     async setParametersExtraPack (req: Request, res: Response, next: NextFunction) {
         // Установка доп параметров.
+        try {
+            
+        } catch (e) {next(e);}
     }
 
 }

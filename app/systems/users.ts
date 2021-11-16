@@ -1,8 +1,24 @@
 import db from '../dataBase';
 import User from '../entities/User';
 import { UserOptionsDb } from '../types/userTypes';
+import jwt from 'jsonwebtoken';
+import ApiError from '../exceptions/ApiError';
+import { decodedDto } from '../types/user';
+import settings from '../settings';
 
 let userList: User []   = [];
+
+export const getUserToToken = async (token: string | undefined): Promise<User> => {
+    try {
+        if (!token) throw Error();
+        const decoded: string | jwt.JwtPayload = jwt.verify(token, settings.secretKey);
+        const user = await getUserToID((decoded as decodedDto).userId);
+        if (!user) throw new Error();
+        return user;
+    } catch (e) {
+        throw ApiError.UnauthorizedError();
+    }
+}
 
 export const getAllUsers = async (): Promise<User[]> => {
     try {

@@ -8,6 +8,7 @@ import jfunction from '../systems/virtualJournalsFun';
 import User from '../entities/User';
 import links from '../systems/links';
 import users from '../systems/users';
+import ApiError from '../exceptions/ApiError';
 
 const router = Router();
 
@@ -48,7 +49,7 @@ router.post(
             }
 
             let candidate = await users.getUser(userName);
-            if (candidate) return res.status(500).json({errors: ['User already exists'], message: 'Такой пользователь уже существует.'});
+            if (candidate) throw ApiError.BadRequest('Такой пользователь уже существует.');
             candidate = new User({
                 userName, 
                 password, 
@@ -60,12 +61,9 @@ router.post(
                 middleName
             });
             const result =  await candidate.save();
-            if (result) return res.status(201).json({message: `Пользователь ${firstName || userName} успешно зарегистрирован.`})
-            return res.status(500).json({errors: ['Registration error'], message: 'Во время регистрации возникла ошибка, обратись к администратору.'})
-        } catch (error) {
-            const e = error as Error;
-            res.status(500).json({errors: [e.message], message: 'Ошибка обработки post запроса - Регистрация пользователя.'});
-        }
+            if (!result) ApiError.BadRequest('Во время регистрации возникла ошибка, обратись к администратору.');
+            return res.status(201).json({message: `Пользователь ${firstName || userName} успешно зарегистрирован.`})
+        } catch (e) {next(e);}
 });
 
 // /api/auth/login
@@ -106,7 +104,7 @@ router.post(
             const token = jwt.sign(
                 {userId: user.id},
                 settings.secretKey,
-                {expiresIn: '10h'}
+                {expiresIn: '9000h'}
             )
             //console.log(token)
             //user.setToken(token);
@@ -127,11 +125,7 @@ router.post(
                     permissionList,
                     links:          userLinks
                 }});
-        } catch (error) {
-            const e = error as Error
-            res.status(500).json({errors: [e.message],  message: 'Ошибка обработки post запроса - Вход в систему.'});
-            console.log(e);
-        }
+        } catch (e) {next(e);}
 });
 
 export default router;

@@ -6,7 +6,7 @@ import { Router } from 'express';
 
 import settings from '../settings';
 import jwt from 'jsonwebtoken';
-import users from "../systems/users";
+import users, { getUserToToken } from "../systems/users";
 
 
 /** Стандартные ошибки */
@@ -23,54 +23,36 @@ const router = Router();
 // Получение всех пользователей, нужен токен
 router.get('/',                     // /api/users
     async (req: Request, res: Response, next: NextFunction) => {
-        /**Получение пользователя по токену */
-        let decoded: decodedDto;
-        const token = req.get('Authorization');
-        if (!token) throw new Error('Не указан токен.');
-        try {decoded = jwt.verify(token, settings.secretKey) as any;} 
-        catch (error) {return res.status(500).json({errors: [(error as Error).message], message: InvalidToken})}
-        const user = await users.getUserToID(decoded.userId);
-        if (!user) return res.status(500).json({errors: [UserNotFoundForReason], message: UserIsNotFound})
-        /**Пользователь получен. */
+            // Проверка токена, получение пользователя.
+            const user: User = await getUserToToken(req.get('Authorization'));
+            // Конец проверки токена.
         try {
             // Разграничить по правам.
             return res.json({users: await users.getAllUsers()}); 
-        } catch (error) {
-            const e = error as Error;
-            console.log(error);
-            res.status(500).json({errors: [e.message], message: 'Ошибка запроса.'})    
-        }
+        } catch (e) {next(e);}
 
         
 });
 // Получение пользователя по id,  нужен токен
 router.get('/:id',                  // /api/users/:id 
     async (req: Request, res: Response, next: NextFunction) => {
-        /**Получение пользователя по токену */
-        let decoded: decodedDto;
-        const token = req.get('Authorization');
-        if (!token) throw new Error('Не указан токен.');
-        try {decoded = jwt.verify(token, settings.secretKey) as any;} 
-        catch (error: any) {return res.status(500).json({errors: [error.message], message: InvalidToken})}
-        const user = await users.getUserToID(decoded.userId);
-        if (!user) return res.status(500).json({errors: [UserNotFoundForReason], message: UserIsNotFound})
-        /**Пользователь получен. */
-        const userId =  req.params.id; // id запрашиваемого пользователя.
+        try {
+            // Проверка токена, получение пользователя.
+            const user: User = await getUserToToken(req.get('Authorization'));
+            // Конец проверки токена.
+            const userId =  req.params.id; // id запрашиваемого пользователя.
+        } catch (e) {next(e)}   
 });
 
 // Получение списка прав пользователя по id, нужен токен.
 router.get('/get-permissions/:id',  // /api/users/get-permissions/:id
     async (req: Request, res: Response, next: NextFunction) => {
-       /**Получение пользователя по токену */
-        let decoded: decodedDto;
-        const token: string | undefined = req.get('Authorization');
-        if (!token) throw new Error('Не указан токен.');
-        try {decoded = jwt.verify(token, settings.secretKey) as any;} 
-        catch (error: any) {return res.status(500).json({errors: [error.message], message: InvalidToken})}
-        const user = await users.getUserToID(decoded.userId);
-        if (!user) return res.status(500).json({errors: [UserNotFoundForReason], message: UserIsNotFound})
-        /**Пользователь получен. */
-        const userId =  req.params.id; // id запрашиваемого пользователя.
+        try {
+            // Проверка токена, получение пользователя.
+            const user: User = await getUserToToken(req.get('Authorization'));
+            // Конец проверки токена.
+            const userId =  req.params.id; // id запрашиваемого пользователя.
+        } catch (e) {next(e);}  
 });
 
 
