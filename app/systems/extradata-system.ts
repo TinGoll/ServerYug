@@ -4,6 +4,10 @@ import db from '../dataBase';
 
 const setExtraData = async (data: ExtraData[]): Promise<number> => {
     try {
+
+        console.log(data);
+        
+
         const query: string = `EXECUTE BLOCK RETURNS (AMOUNT INTEGER) AS DECLARE VARIABLE C INTEGER = 0; BEGIN\n${
             data.map(d => {
                 const txt: string = (d?.journalId && d?.group && d?.name && d?.data) ?
@@ -12,6 +16,7 @@ const setExtraData = async (data: ExtraData[]): Promise<number> => {
                 return txt
             }).join('')}:AMOUNT = :C; SUSPEND; END;`;
             const [res] = (await db.executeRequest(query));
+            console.log(query);
             return res?.AMOUNT;
     } catch (e) {
         throw new Error('Ошибка установки дополнительных параметров');

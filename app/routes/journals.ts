@@ -4,14 +4,15 @@ import { Router } from 'express';
 import db from '../dataBase';
 import { format } from 'date-format-parse';
 import atOrderQuery from '../query/atOrder';
-import jfunction from '../systems/virtualJournalsFun';
+import jfunction, { convertJournalDataDbToDto } from '../systems/virtualJournalsFun';
 import _ from 'lodash';
 
-import { JournalCommentDto, JournalName, JournalSectorDto } from "../types/journalTypes";
+import { JournalAdoptedDb, JournalAdoptedDto, JournalCommentDto, JournalDataDb, JournalDataDto, JournalName, JournalSectorDto } from "../types/journalTypes";
 import { QueryOptions } from "../types/queryTypes";
 import User from "../entities/User";
 import { getUserToToken } from "../systems/users";
 import ApiError from "../exceptions/ApiError";
+import { createItmDb } from "../firebird/Firebird";
 
 // /api/journals/
 
@@ -25,7 +26,7 @@ interface ReportForExcelDb {
     DATE_PLAN: Date;
     LOCATION: string;
 } 
-// /api/journals/order-report - запрос для EXCEL, отчет по участкам по дате
+// /api/journals/order-report - запрос для EXCEL, отчет по участкам по дате.
 router.get(
     '/order-report/:date',
     async (req: Request, res: Response, next: NextFunction) => {
@@ -127,6 +128,7 @@ router.get (
         const defaultError: string = 'Ошибка получения принятых заказов';
         const permissionName: string = 'Journals [adopted] get';
         try {
+            const db = await createItmDb();
             const options: QueryOptions   = {...atOrderQuery.getdefaultOptions('get_adopted')} as QueryOptions;
             const limit: number                 = req.query._limit as any || 100;
             const page: number | undefined      = req.query._page as any;
@@ -135,7 +137,7 @@ router.get (
             const d1: string | undefined        = req.query._d1 as any; 
             const d2: string | undefined        = req.query._d2 as any;
 
-            const filter: string | undefined        = req.query._filter as any;
+            const filter: string | undefined      = req.query._filter as any;
             const dateFirst: Date | undefined     = d1 ? convertToDate(d1, "dd/mm/yyyy") : undefined;
             const dateSecond: Date | undefined    = d2 ? convertToDate(d2, "dd/mm/yyyy") : undefined;
         
@@ -172,13 +174,32 @@ router.get (
                     like '%${f.toUpperCase()}%'`;
                 }
             }
-
             const query         = atOrderQuery.get('get_adopted', options);
             const queryCount    = atOrderQuery.get('get_adopted_pages_count', options);
-            const orders        = await db.executeRequest(query);
-            const [count]       = await db.executeRequest(queryCount);
-            const pages         = count.COUNT ? Math.ceil(count.COUNT / (options.$first || 100)) : 0;
+            const queryData     = atOrderQuery.get('get_adopted_extra_data', options);
 
+            const ordersDb      = await db.executeRequest<JournalAdoptedDb>(query);
+            const [count]       = await db.executeRequest<{COUNT: number}>(queryCount);
+            const dataDb        = await db.executeRequest<JournalDataDb>(queryData);
+
+            const orders: JournalAdoptedDto[] = ordersDb.map(o => {
+                const comments =  dataDb.filter(d => d.ID_ORDER === o.ID && d.DATA_GROUP.toUpperCase() === 'Comment'.toUpperCase()).map(d => convertJournalDataDbToDto(d));
+                const extraData = dataDb.filter(d => d.ID_JOURNAL === o.JOURNAL_ID && d.DATA_GROUP.toUpperCase() !== 'Comment'.toUpperCase()).map(d => convertJournalDataDbToDto(d));
+                const order: JournalAdoptedDto = {
+                    id: o.ID,
+                    itmOrderNum: o.ITM_ORDERNUM,
+                    transfer: o.TRANSFER,
+                    accepted: o.ACCEPTED,
+                    statusOld: o.STATUS_DESCRIPTION,
+                    status: o.STATUS_NAME,
+                    fasadSquare: o.ORDER_FASADSQ,
+                    date: o.TRANSFER_DATE,
+                    data: {comments, extraData}
+                }
+                return order;
+            });
+            const pages         = count.COUNT ? Math.ceil(count.COUNT / (options.$first || 100)) : 0;
+            db.detach();
             return res.json({orders, count: count.COUNT , pages: pages});
         } catch (e) {next(e);}
     }

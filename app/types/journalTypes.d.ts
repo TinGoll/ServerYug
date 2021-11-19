@@ -36,6 +36,57 @@ export declare interface JournalPlansDb {
     DATE3: Date;
 }
 
+export declare interface JournalAdoptedDto {
+    id: number;
+    itmOrderNum: string;
+    transfer: string;
+    accepted: string;
+    statusOld: string;
+    status: string;
+    fasadSquare: number;
+    date: Date;
+    data: {
+        comments?: JournalDataDto[],
+        extraData?: JournalDataDto[]
+    } 
+}
+
+export declare interface JournalDataDto {
+    id?: number;
+    journalId?: number;
+    sectorId?: number;
+    orderId?: number;
+    employeeId?: number;
+    group?: string;
+    type?: string;
+    name: string;
+    data: string;
+}
+
+export declare interface JournalDataDb {
+    ID: number;
+    ID_JOURNAL: number;
+    ID_SECTOR: number;
+    ID_ORDER: number
+    ID_EMPLOYEE: number;
+    DATA_TYPE: string;
+    DATA_GROUP: string;
+    DATA_NAME: string;
+    DATA_VALUE: string;
+}
+
+export declare interface JournalAdoptedDb {
+    ID: number;
+    JOURNAL_ID: number;
+    ITM_ORDERNUM: string;
+    TRANSFER: string;
+    ACCEPTED: string;
+    STATUS_DESCRIPTION: string;
+    STATUS_NAME: string;
+    ORDER_FASADSQ: number;
+    TRANSFER_DATE: Date;
+}
+
 export declare interface JournalStatusListOldDb {
     ID : number;
     STATUS_NUM: number;

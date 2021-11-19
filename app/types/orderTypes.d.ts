@@ -76,7 +76,7 @@ export declare interface OrderHeader {
     costUpComment?: string;
 }
 
-export declare interface IOrderDb {
+export declare interface IOrderHeaderDb {
     ID:                      number,
     MANAGER:                 string,
     CLIENT:                  string,

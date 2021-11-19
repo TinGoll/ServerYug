@@ -35,26 +35,50 @@ const data = [
             name: 'get_adopted',
             query: (opt: QueryOptions): string => {
                 const {$first = '', $skip = '', $where = '', $sort = ''} = opt;
-                let q: string =`select ${$first} ${$skip}
-                distinct O.ID, O.ITM_ORDERNUM,
-                (select NAME
-                from SECTORS
-                where ID =
-                (select first 1 T2.ID_SECTOR
-                from JOURNALS J2
-                left join JOURNAL_TRANS T2 on (T2.ID_JOURNAL = J2.ID)
-                where T2.MODIFER = - 1 and
-                      J2.ID = J.ID)
-                ) as TRANSFER, SECTOR.NAME as ACCEPTED, 
-                S.STATUS_DESCRIPTION, O.ORDER_FASADSQ, J.NOTE, J.TRANSFER_DATE
-                from JOURNALS J
-                left join ORDERS O on (J.ID_ORDER = O.ID)
-                left join clients c on (o.client = c.clientname)
-                left join LIST_STATUSES S on (O.ORDER_STATUS = S.STATUS_NUM)
-                left join JOURNAL_TRANS T on (T.ID_JOURNAL = J.ID)
-                left join SECTORS SECTOR on (T.ID_SECTOR = SECTOR.ID)
+                let q: string =`SELECT ${$first} ${$skip} DISTINCT
+                O.ID, O.ITM_ORDERNUM,
+                (SELECT NAME FROM SECTORS WHERE ID =
+                                (SELECT FIRST 1 T2.ID_SECTOR
+                                FROM JOURNALS J2
+                                LEFT JOIN JOURNAL_TRANS T2 ON (T2.ID_JOURNAL = J2.ID)
+                                WHERE T2.MODIFER = - 1 AND
+                                    J2.ID = J.ID)
+                ) AS TRANSFER,
+
+                SECTOR.NAME AS ACCEPTED, 
+                S.STATUS_DESCRIPTION, GET_STATUS_NAME(GET_JSTATUS_ID(O.ID)) AS STATUS_NAME,
+                O.ORDER_FASADSQ, J.TRANSFER_DATE, J.ID AS JOURNAL_ID
+
+                FROM JOURNALS J
+                LEFT JOIN ORDERS O ON (J.ID_ORDER = O.ID)
+                LEFT JOIN CLIENTS C ON (O.CLIENT = C.CLIENTNAME)
+                LEFT JOIN LIST_STATUSES S ON (O.ORDER_STATUS = S.STATUS_NUM)
+                LEFT JOIN JOURNAL_TRANS T ON (T.ID_JOURNAL = J.ID)
+                LEFT JOIN SECTORS SECTOR ON (T.ID_SECTOR = SECTOR.ID)
+
                 ${$where}
                 ${$sort}`;
+                return q;
+            },
+            defaultOptions: {
+                $first: '100',
+                $sort: 'J.TS desc',
+                $where: 'T.MODIFER = 1' // обязательный параметр
+            }
+        },
+         {
+            name: 'get_adopted_extra_data',
+            query: (opt: QueryOptions): string => {
+                const {$first = '', $skip = '', $where = '', $sort = ''} = opt;
+                let q: string =`
+                    SELECT * FROM JOURNAL_DATA WHERE EXISTS (
+                        SELECT ${$first} ${$skip} DISTINCT O.ID
+                        FROM JOURNALS J
+                        LEFT JOIN ORDERS O ON (J.ID_ORDER = O.ID)
+                        LEFT JOIN JOURNAL_TRANS T ON (T.ID_JOURNAL = J.ID)
+                        ${$where}
+                        ${$sort}
+                    ) ORDER BY ID`;
                 return q;
             },
             defaultOptions: {

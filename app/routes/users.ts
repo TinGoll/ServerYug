@@ -1,18 +1,8 @@
 import { NextFunction, Request, Response } from "express";
 import User from "../entities/User";
-import { decodedDto } from "../types/user";
-
 import { Router } from 'express';
-
-import settings from '../settings';
-import jwt from 'jsonwebtoken';
 import users, { getUserToToken } from "../systems/users";
 
-
-/** Стандартные ошибки */
-const InvalidToken: string          = 'Токен не действителен.';
-const UserIsNotFound: string        = 'Пользователь не найден';
-const UserNotFoundForReason: string = 'Пользователь не обнаружен, возможно был удалён или заблокирован';
 /********************************* */
 
 // /api/users/
@@ -23,13 +13,15 @@ const router = Router();
 // Получение всех пользователей, нужен токен
 router.get('/',                     // /api/users
     async (req: Request, res: Response, next: NextFunction) => {
+        try {
             // Проверка токена, получение пользователя.
             const user: User = await getUserToToken(req.get('Authorization'));
             // Конец проверки токена.
-        try {
             // Разграничить по правам.
             return res.json({users: await users.getAllUsers()}); 
-        } catch (e) {next(e);}
+        } catch (e) {
+            next(e);
+        }
 
         
 });

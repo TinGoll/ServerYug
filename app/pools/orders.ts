@@ -4,20 +4,19 @@ import db from '../dataBase';
 import path from 'path';
 const __dirn             = path.resolve();
 import _ from 'lodash';
-import jwt from 'jsonwebtoken';
 import jfunction from '../systems/virtualJournalsFun';
-import settings from '../settings';
 import { NextFunction, Request, Response } from 'express';
-import { decodedDto, EmployersDb } from "../types/user";
+import { EmployersDb } from "../types/user";
 import { QueryOptions } from '../types/queryTypes';
-import { IOrderDb, OrderBody, OrderHeader } from '../types/orderTypes';
+import { IOrderHeaderDb, OrderBody, OrderHeader } from '../types/orderTypes';
 import User from '../entities/User';
-import users, { getUserToToken } from '../systems/users';
+import { getUserToToken } from '../systems/users';
 import { createItmDb } from '../firebird/Firebird';
 import ApiError from '../exceptions/ApiError';
 
 
 // Получение всех заказов, лимит по умолчанию - 100
+
 const getAllOrders = async (req: Request, res: Response, next: NextFunction) => {
     try {
         // Проверка токена, получение пользователя.
@@ -369,10 +368,10 @@ const getOneOrder = async  (req: Request, res: Response, next: NextFunction) => 
                 unit:           b.MEASURE_UNIT?.replace('м2', 'м²')
             }
             // Отображение согласно прав.
-            if (isViewCost) {           body.cost           = b.COST; 
+            if (isViewCost) {           body.priceCost      = b.PRICE_COST;
+                                        body.cost           = b.COST; 
                                         body.calcAs         = b.CALC_AS;
                                         body.costSng        = b.COST_SNG;
-                                        body.priceCost      = b.PRICE_COST;
                                         body.priceMod       = b.MOD_PRICE;
                                         body.calcComment    = b.CALC_COMMENT;
             }
@@ -400,7 +399,8 @@ const getDataHeaderForCreateOrder = async (req: Request, res: Response, next: Ne
         const result = await db.executeRequest<EmployersDb>(ordersQuery.get('get_employers'));
         const employers = result.map(e=>e.NAME);
         db.detach();
-        res.status(200).json({employers});
+        const lists = {employers}
+        res.status(200).json({lists});
     } catch (e) {next(e);}
     
 }
@@ -411,7 +411,7 @@ const getTest = async (req: Request, res: Response, next: NextFunction) => {
       
         const db = await createItmDb();
         try {
-            const [order, ...other] = await db.executeRequest<IOrderDb>(`SELECT * FROM ORDERS O WHERE O.MANAGER = ?`, ['Оля']);
+            const [order, ...other] = await db.executeRequest<IOrderHeaderDb>(`SELECT * FROM ORDERS O WHERE O.MANAGER = ?`, ['Оля']);
             console.log(other.length);
             
             console.log(order.ITM_ORDERNUM);

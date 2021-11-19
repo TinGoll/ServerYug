@@ -7,17 +7,13 @@ import jfunction from '../systems/virtualJournalsFun';
 import { BarcodesDb } from '../types/orderTypes';
 import { JournalOtherTransDb, JournalSalaryDb, JournalTransactionsDb, SalarySectorDto } from '../types/journalTypes';
 import extraSystem from '../systems/extradata-system';
-import users, { getUserToToken } from '../systems/users';
 import ApiError from '../exceptions/ApiError';
 import User from '../entities/User';
-
+import { getUserToToken } from '../systems/users';
 
 
 // /api/at-order/
-
 const router = Router();
-
-
 // /api/at-order/data
 router.get(
     '/data',
@@ -72,8 +68,7 @@ router.get(
                     left join ORDERS O on (J.ID_ORDER = O.ID)
                 where J.ID_JOURNAL_NAMES in (${journal.j.join(', ')})
                 group by T.ID, T.DATE_ADDED, T.NAME
-                order by T.DATE_ADDED desc
-            `);
+                order by T.DATE_ADDED desc`);
             if (!transactions || transactions.length == 0) throw ApiError.BadRequest('Список пуст.')
             return res.status(200).json({transactions});
         } catch (e) {next(e);}
@@ -468,6 +463,7 @@ router.post(
                         date3:              w.DATE3
                     }
                 });
+
             const orderLocations = (await db.executeRequest(`
                 SELECT L.ID_ORDER, L.ID_SECTOR, L.MODIFER
                 FROM LOCATION_ORDER L
@@ -480,7 +476,10 @@ router.post(
                     modifer: l.MODIFER
                 }
             });
-            const orders = (await db.executeRequest(query)).map(o => {
+
+            const resOrders = await db.executeRequest(query);
+            if (!resOrders.length) throw ApiError.BadRequest('Ни один из указанных заказов, не может быть передан, в виду отсутствия их в работе. Обратитесь к менеджеру заказа.')
+            const orders = resOrders.map(o => {
                 const works = orderWorks.filter(w => w.orderId == o.ID);
                 const locations = orderLocations.filter(l => l.orderId == o.ID);
                 return {
@@ -495,14 +494,22 @@ router.post(
                     locations,
                 }
             });
-                                  
+                  
             for (const registerOrder of registerOrders) {
                 const order = orders.find(o => o.id == registerOrder.idOrder)
+
                 registerOrder.completed = true;
                 registerOrder.description = `успешно`;
 
+                if (!order) {
+                    registerOrder.completed = false;
+                    registerOrder.description = `Заказ не в работе.`;
+                    continue;
+                }
+
                 if (!registerOrder) continue;
                 // Если есть данные работы, по передающему участку.
+
                 if (!jfunction.isWorkPlan(namesTransferOldSector, order?.works || [])) {
                     registerOrder.completed = false;
                     registerOrder.description = `Участок "${transfer.SECTOR}" не включен в планы по этому заказу.`;
@@ -552,6 +559,13 @@ router.post(
                         end`;
    
                 const [newJournal] = await db.executeRequest(query);
+               
+                if (extraData && extraData?.length) {
+                   const extrD : {orderId: number, journalId: number, group: string, type: string, name: string, data: string}[] = extraData as any[];
+                   const ed = extrD.filter(e => e.orderId === order?.id);
+                   for (const e of ed) {e.journalId = newJournal.ID;}
+                }
+
 
                 // Смена статусов, если указаны.
                 if (dependencies[0].statusAfterOldId) {

@@ -10,7 +10,7 @@ let userList: User []   = [];
 
 export const getUserToToken = async (token: string | undefined): Promise<User> => {
     try {
-        if (!token) throw Error();
+        if (!token) throw new Error();
         const decoded: string | jwt.JwtPayload = jwt.verify(token, settings.secretKey);
         const user = await getUserToID((decoded as decodedDto).userId);
         if (!user) throw new Error();
@@ -26,7 +26,7 @@ export const getAllUsers = async (): Promise<User[]> => {
             SELECT DISTINCT
                 E.ID, E.MGMT_PASS, E.NAME, E.FIRSTNAME, E.LASTNAME, E.MIDDLENAME,
                 E.BANK_CARD, E.PHONE, E.CARD_HOLDER,
-                E.DEPARTMENT, E.ID_SECTOR, E.STATUS, E.LOCATION,
+                E.DEPARTMENT, E.ID_SECTOR, E.STATUS, E.LOCATION,y
                 PERMISSION_GROUP_ID, G.NAME AS PERMISSION_GROUP
             FROM EMPLOYERS E
             LEFT JOIN PERMISSIONS_GROUP G ON (E.PERMISSION_GROUP_ID = G.ID)

@@ -3,7 +3,7 @@ import _ from 'lodash';
 import users from '../systems/users';
 import { format } from 'date-format-parse';
 import User from '../entities/User';
-import { JournalName, JournalOrderDto, JournalPermission, JournalPlans, JournalPlansDb, JournalSectorDto, JournalSectorList, JournalStatusListOldDb } from '../types/journalTypes';
+import { JournalDataDb, JournalDataDto, JournalName, JournalOrderDto, JournalPermission, JournalPlans, JournalPlansDb, JournalSectorDto, JournalSectorList, JournalStatusListOldDb } from '../types/journalTypes';
 
 const statusList: JournalStatusListOldDb[] = [];  // Статусы
 const sectorsList: JournalSectorList[] = []; // Сектора
@@ -26,6 +26,8 @@ const permissions: JournalPermission[] = [
     {name: 'Journals [get-journals] get upak', data: [journals[3]]},        // Журнал упаковки
     {name: 'Journals [get-journals] get buhgalter', data: [journals[4]]}    // Журнал Бухгалтера
 ];
+
+const sectorsDefault: number[] = [5, 23, 24] //Упаковка, склад отгруженных, отгрузка
 
 //Получение списка прав
 const permissionSet = async (user: User): Promise<JournalName[]> => {
@@ -253,6 +255,26 @@ const getJournalToId = async (id: number): Promise<JournalSectorDto[]> => {
 
         return journal;
     } catch (error) {throw error;}
+}
+
+export const convertJournalDataDbToDto = (data: JournalDataDb): JournalDataDto => {
+    try {
+        const eData: JournalDataDto = {
+            id: data.ID,
+            journalId: data.ID_JOURNAL,
+            sectorId: data.ID_SECTOR,
+            orderId: data.ID_ORDER,
+            employeeId: data.ID_EMPLOYEE,
+            type: data.DATA_TYPE,
+            group: data.DATA_GROUP,
+            name: data.DATA_NAME,
+            data: data.DATA_VALUE
+        }
+        return eData;
+    } catch (e) {
+        throw e;
+    }   
+    
 }
 
 const journalSborka = async () => {
