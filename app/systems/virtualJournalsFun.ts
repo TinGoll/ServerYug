@@ -15,7 +15,8 @@ const journals: JournalName[] = [
     {id: 2, name: 'Журнал шлифовки', j: [2]},
     {id: 3, name: 'Журнал лакировки', j: [3]},
     {id: 4, name: 'Журнал упаковки', j: [4]},
-    {id: 5, name: 'Журнал бухгалтера', j: [1, 2, 3, 4]}
+    {id: 5, name: 'Журнал бухгалтера', j: [1, 2, 3, 4]},
+    {id: 6, name: 'Общий журнал', j: [6]}
 ]
 
 const permissions: JournalPermission[] = [
@@ -24,7 +25,8 @@ const permissions: JournalPermission[] = [
     {name: 'Journals [get-journals] get shlif', data: [journals[1]]},       // Журнал Шлифовки
     {name: 'Journals [get-journals] get lak', data: [journals[2]]},         // Журнал лакировки
     {name: 'Journals [get-journals] get upak', data: [journals[3]]},        // Журнал упаковки
-    {name: 'Journals [get-journals] get buhgalter', data: [journals[4]]}    // Журнал Бухгалтера
+    {name: 'Journals [get-journals] get buhgalter', data: [journals[4]]},   // Журнал Бухгалтера
+    {name: 'Journals [get-journals] get general', data: [journals[5]]}      // Журнал Бухгалтера
 ];
 
 const sectorsDefault: number[] = [5, 23, 24] //Упаковка, склад отгруженных, отгрузка
@@ -134,7 +136,8 @@ const getSectors = async (): Promise<JournalSectorList[]> => {
  * Функции для возврата журналов 
  */
 
-const workTime = (startDate: Date): number => {
+const workTime = (startDate: Date | null): number => {
+    if (!startDate) return 0;
     const oneDayMS: number = (24 * 60 * 60 * 1000);
     const nowMS: number = Date.now();
     let tempMS: number = startDate.valueOf();
@@ -158,11 +161,16 @@ const workTime = (startDate: Date): number => {
     return (res < 0 ? 0 : res);
 };
 
-const getJournalToId = async (id: number): Promise<JournalSectorDto[]> => {
+const getJournalToId = async (id: number, sect: number[] = []): Promise<JournalSectorDto[]> => {
     try {
+
         const sectorsDep: any[] = await db.executeRequest(`SELECT DISTINCT D.ID_SECTOR_TRANSFER FROM JOURNAL_DEP D WHERE D.ID_JOURNAL_NAME = ${id}`);
+        if (sect.length) {
+            for (const s of sect) {sectorsDep.push({ID_SECTOR_TRANSFER: s});}
+        }
         if (!sectorsDep.length) return [];
-        const orderComments: any[] = await db.executeRequest(`SELECT DISTINCT 
+        const orderComments: any[] = await db.executeRequest(`
+                                                    SELECT DISTINCT 
                                                         O.ID as ORDER_ID, D.ID AS DATA_ID, D.ID_SECTOR,
                                                         GET_SECTOR_NAME(D.ID_SECTOR) AS SECTOR, D.ID_EMPLOYEE,
                                                         GET_EMP_NAME(D.ID_EMPLOYEE) AS EMP_NAME, D.DATA_GROUP,
@@ -202,6 +210,7 @@ const getJournalToId = async (id: number): Promise<JournalSectorDto[]> => {
                 WHERE (J.ID IS NULL OR (L.ID_SECTOR IS NOT NULL))
                 ORDER BY ORD.DATE3
                 `;
+
         let journal: JournalSectorDto[] = [];
         const res = await db.executeRequest(query); // Получаем данные из базы
         /** Обработка дынных **/
@@ -210,6 +219,7 @@ const getJournalToId = async (id: number): Promise<JournalSectorDto[]> => {
         let sectors: JournalSectorDto[] = _.uniqBy(res, obj => obj.ID_NEW_SECTOR).map(s => {
             return {id: s.ID_NEW_SECTOR, name: s.S_NAME, overdue: [], forToday: [], forFuture: []}
         });
+
         if (!sectorsList.length) await initSectors();
         sectors = sectors.sort((a, b) => {
             const orderA = (sectorsList.find(s => s?.name == a?.name))?.orderBy || 0;
@@ -237,7 +247,7 @@ const getJournalToId = async (id: number): Promise<JournalSectorDto[]> => {
                         }
                     }
                 }), _.isEqual);
-                
+
                 for (const order of orders) {
                     order.data.comments = orderComments
                     .filter(c => c.ORDER_ID == order.id)
@@ -246,13 +256,12 @@ const getJournalToId = async (id: number): Promise<JournalSectorDto[]> => {
                     }) 
                 }
             const now = new Date();
-            const toDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).valueOf();
-            sector.overdue = orders.filter(o => o.datePlan.valueOf() < toDay); // Просроченые
-            sector.forToday = orders.filter(o => o.datePlan.valueOf() == toDay); // На сегодня
-            sector.forFuture = orders.filter(o => o.datePlan.valueOf() > toDay); // Будущие
+            const toDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())?.valueOf();
+            sector.overdue      = orders.filter(o => o.datePlan?.valueOf() < toDay); // Просроченые
+            sector.forToday     = orders.filter(o => o.datePlan?.valueOf() == toDay); // На сегодня
+            sector.forFuture    = orders.filter(o => o.datePlan?.valueOf() > toDay); // Будущие
             journal.push(sector)
         }
-
         return journal;
     } catch (error) {throw error;}
 }

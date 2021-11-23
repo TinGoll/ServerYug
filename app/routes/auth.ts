@@ -35,6 +35,7 @@ router.post(
             let lastName = '', firstName = '', middleName = '';
             const errors = validationResult(req);
             if (!errors.isEmpty()) return res.status(400).json({errors: errors.array(), message: 'Некорректные данные при регистрации.'});
+
             const {fio, gender, telephone, login: userName, pass: password, otherData, ...other} = req.body;
             const [item1, item2, item3] = fio.split(' ');
             if (item1 && !item2) {firstName = item1;}
@@ -43,9 +44,9 @@ router.post(
                 lastName = item1
             }
             else {
-                lastName = item1;
-                firstName = item2;
-                middleName = item3;
+                lastName    = item1;
+                firstName   = item2;
+                middleName  = item3;
             }
 
             let candidate = await users.getUser(userName);
@@ -104,7 +105,7 @@ router.post(
             const token = jwt.sign(
                 {userId: user.id},
                 settings.secretKey,
-                {expiresIn: '9000h'}
+                {expiresIn: '10h'}
             )
             //console.log(token)
             //user.setToken(token);

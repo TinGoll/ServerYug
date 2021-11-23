@@ -186,15 +186,15 @@ router.get (
                 const comments =  dataDb.filter(d => d.ID_ORDER === o.ID && d.DATA_GROUP.toUpperCase() === 'Comment'.toUpperCase()).map(d => convertJournalDataDbToDto(d));
                 const extraData = dataDb.filter(d => d.ID_JOURNAL === o.JOURNAL_ID && d.DATA_GROUP.toUpperCase() !== 'Comment'.toUpperCase()).map(d => convertJournalDataDbToDto(d));
                 const order: JournalAdoptedDto = {
-                    id: o.ID,
-                    itmOrderNum: o.ITM_ORDERNUM,
-                    transfer: o.TRANSFER,
-                    accepted: o.ACCEPTED,
-                    statusOld: o.STATUS_DESCRIPTION,
-                    status: o.STATUS_NAME,
-                    fasadSquare: o.ORDER_FASADSQ,
-                    date: o.TRANSFER_DATE,
-                    data: {comments, extraData}
+                    id:             o.ID,
+                    itmOrderNum:    o.ITM_ORDERNUM,
+                    transfer:       o.TRANSFER,
+                    accepted:       o.ACCEPTED,
+                    statusOld:      o.STATUS_DESCRIPTION,
+                    status:         o.STATUS_NAME,
+                    fasadSquare:    o.ORDER_FASADSQ,
+                    date:           o.TRANSFER_DATE,
+                    data:           {comments, extraData}
                 }
                 return order;
             });
@@ -233,6 +233,12 @@ router.get(
                     break;
                 case 4:
                     journal = await jfunction.getJournalToId(id);
+                    break;
+                case 6:
+                    // Все сектора.
+                    const allSectors = await jfunction.getSectors();
+                    const allSectorsId = allSectors.map(s => s.id);
+                    journal = await jfunction.getJournalToId(id, allSectorsId);
                     break;
                 default:
                     break;

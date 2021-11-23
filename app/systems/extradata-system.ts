@@ -4,10 +4,7 @@ import db from '../dataBase';
 
 const setExtraData = async (data: ExtraData[]): Promise<number> => {
     try {
-
-        console.log(data);
-        
-
+        if(!data.length) throw new Error();
         const query: string = `EXECUTE BLOCK RETURNS (AMOUNT INTEGER) AS DECLARE VARIABLE C INTEGER = 0; BEGIN\n${
             data.map(d => {
                 const txt: string = (d?.journalId && d?.group && d?.name && d?.data) ?

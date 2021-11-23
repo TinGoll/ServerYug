@@ -37,7 +37,6 @@ export declare interface PermissionDbDto {
 export declare interface decodedDto {
     userId: number;
 }
-
 export declare interface EmployersDb {
     MGMT_PASS:            string,
     ID:                   number,
