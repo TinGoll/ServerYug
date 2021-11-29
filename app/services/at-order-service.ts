@@ -50,12 +50,15 @@ class AtOrderService {
                 const namesTransferOldSector  = await jfunction.getNameOldSectorArrToIdNewSector(transfer!.idSector); 
                 const namesAcceptedOldSector  = await jfunction.getNameOldSectorArrToIdNewSector(accepted!.idSector); 
 
+
+                // Деревянно, переделать
+                if (transfer?.idSector == 5 && accepted?.idSector == 24) transfer.idSector = 23;
+
                 // Получаем зависимости
                 const dependenciesDb = await db.executeRequest<IDependenciesDb>(
                     `SELECT * FROM JOURNAL_DEP D WHERE D.ID_SECTOR_TRANSFER = ? AND D.ID_SECTOR_ACCEPTED = ?`, 
                     [transfer?.idSector||null, accepted?.idSector||null]);
                 
-
                 const dependencies: IDependencies[] = dependenciesDb.map(d => dtoConverter.convertDependenciesDbToDto(d));
 
                 // Если в зависимости передающий этап являеться стартовым.
@@ -64,14 +67,16 @@ class AtOrderService {
                 const ordersToString = transferOrders.orders.map(o => o.idOrder).join(', ');
 
                 const ordersFromDb = await db.executeRequest<IAtOrdersDb>(
-                    `SELECT DISTINCT O.ID, O.ITM_ORDERNUM, S.ID AS OLD_STATUS_ID, S.STATUS_DESCRIPTION, GET_JSTATUS_ID(O.ID) AS STATUS_ID,
+                    `SELECT DISTINCT
+                        O.ID, O.ITM_ORDERNUM, S.ID AS OLD_STATUS_ID, S.STATUS_DESCRIPTION, GET_JSTATUS_ID(O.ID) AS STATUS_ID,
                         J.ID AS JOURNAL_ID, N.NAME AS JOURNAL_NAME
                     FROM ORDERS_IN_PROGRESS O
                         LEFT JOIN LIST_STATUSES S ON (O.ORDER_STATUS = S.STATUS_NUM)
-                        LEFT JOIN JOURNALS J ON (J.ID_ORDER = O.ID AND EXISTS (
-                            SELECT T.ID FROM JOURNAL_TRANS T WHERE T.ID_JOURNAL = J.ID AND
-                            ((T.ID_SECTOR = ${transfer?.idSector} AND T.MODIFER < 0) OR (T.ID_SECTOR = ${accepted?.idSector} AND T.MODIFER > 0))))
-                        LEFT JOIN JOURNAL_NAMES N ON (J.ID_JOURNAL_NAMES = N.ID) WHERE O.ID IN (${ordersToString})`);
+                        LEFT JOIN JOURNALS J ON (J.ID_ORDER = O.ID AND
+                            EXISTS (SELECT T.ID FROM JOURNAL_TRANS T WHERE T.ID_JOURNAL = J.ID AND T.ID_SECTOR = ${transfer?.idSector} AND T.MODIFER < 0) AND
+                            EXISTS (SELECT T.ID FROM JOURNAL_TRANS T WHERE T.ID_JOURNAL = J.ID AND T.ID_SECTOR = ${accepted?.idSector} AND T.MODIFER > 0))
+                        LEFT JOIN JOURNAL_NAMES N ON (J.ID_JOURNAL_NAMES = N.ID)
+                    WHERE O.ID IN (${ordersToString})`);
 
                 const orderWorksDb = await db.executeRequest<IWorkOrdersDb>(`
                     SELECT P.ID, P.ORDER_ID, P.DATE_SECTOR, P.DATE_DESCRIPTION, P.COMMENT, P.DATE1, P.DATE2, P.DATE3
@@ -166,6 +171,7 @@ class AtOrderService {
 
                     if (dependencies[0].statusAfterOldId) {
                         const oldStatusNum = await jfunction.getStatusNumOldToIdStatusOld(dependencies[0]?.statusAfterOldId);
+
                         if (oldStatusNum) await db.execute(`update ORDERS O set O.ORDER_STATUS = ${oldStatusNum} where O.ID = ${order.idOrder}`);
                     }
                     if (dependencies[0].statusAfterId) {
@@ -180,10 +186,11 @@ class AtOrderService {
                 if (transferOrders.extraData &&transferOrders.extraData?.length) {
                     const countExtraData = await setExtraData(transferOrders.extraData);
                 } 
-            const countOrders = transferOrders.orders.filter(o => o.completed).length;
-            let message = `${countOrders ? '☑️ Принято ' + countOrders + ' из ' + transferOrders.orders.length : '❌ Не один из заказов не принят.'}`;
-            if (countOrders == transferOrders.orders.length)  message = `✅ Все заказы приняты. (${transferOrders.orders.length})`;
-            return {message, orders: transferOrders.orders};
+
+                const countOrders = transferOrders.orders.filter(o => o.completed).length;
+                let message = `${countOrders ? '☑️ Принято ' + countOrders + ' из ' + transferOrders.orders.length : '❌ Не один из заказов не принят.'}`;
+                if (countOrders == transferOrders.orders.length)  message = `✅ Все заказы приняты. (${transferOrders.orders.length})`;
+                return {message, orders: transferOrders.orders};
             } catch (e) {throw e;} finally { 
                 console.log('at order - db.detach');
                 db.detach();}

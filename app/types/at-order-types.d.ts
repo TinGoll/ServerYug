@@ -40,7 +40,7 @@ export declare interface IDependenciesDb {
     ID_SECTOR_TRANSFER: number;
     ID_SECTOR_ACCEPTED: number;
     ID_JOURNAL_NAME: number;
-    ID_STATUS_AFTER: number; 
+    ID_STATUS_AFTER : number; 
     ID_STATUS_AFTER_OLD: number; 
     START_STAGE: number;
 }

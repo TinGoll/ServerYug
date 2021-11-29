@@ -106,7 +106,6 @@ const setExtraData = async (data: IExtraData[]): Promise<number> => {
                 return txt
             }).join('')}:AMOUNT = :C; SUSPEND; END;`;
             const [res] = (await db.executeRequest(query));
-            console.log(query);
             return res?.AMOUNT;
     } catch (e) {
         throw new Error('Ошибка установки дополнительных параметров');
