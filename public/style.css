@@ -40,6 +40,10 @@ th {
     color: rgb(9, 248, 248);
 }
 
+.delete-query {
+    color: rgb(228, 10, 10);
+}
+
 .patch-query {
     color: coral;
 }

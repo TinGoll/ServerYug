@@ -77,14 +77,17 @@ export declare interface JournalDataDb {
 
 export declare interface JournalAdoptedDb {
     ID: number;
-    JOURNAL_ID: number;
     ITM_ORDERNUM: string;
-    TRANSFER: string;
-    ACCEPTED: string;
-    STATUS_DESCRIPTION: string;
-    STATUS_NAME: string;
     ORDER_FASADSQ: number;
-    TRANSFER_DATE: Date;
+    ORDER_GENERALSQ: number;
+    STATUS_DESCRIPTION: string;
+    STATUS_NAME: string | null;
+    JOURNAL_ID: number; 
+    TRANSFER_DATE: Date 
+    ID_JOURNAL_NAMES: number;
+    ID_EMPLOYEE: number;
+    ID_SECTOR: number;
+    MODIFER: number;
 }
 
 export declare interface JournalStatusListOldDb {

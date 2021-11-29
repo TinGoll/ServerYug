@@ -119,7 +119,24 @@
                     <b>body:</b>  {"barcodeTransfer", "barcodeAccepted"}
                 </td>
               </tr>
-
+              <tr class="body-td">
+                <td class="body-cell">http://192.168.2.10:3131/api/extra-data/add</td>
+                <td>
+                    <b class="post-query">POST Запрос</b>: Добавление новых элементов в список доп-параметров (Например Водителей). 
+                    Для добавления в нужный список, необходимо указать название списка "name" и сам элемент "date"<br>
+                    Требует токен <br>
+                    <b>body:</b>  {"name", "data"}
+                </td>
+              </tr>
+              <tr class="body-td">
+                <td class="body-cell">http://192.168.2.10:3131/api/extra-data/add</td>
+                <td>
+                    <b class="delete-query">DELETE Запрос</b>: Удаление элементов из списка доп-параметров . 
+                    Для удаления, необходимо указать название списка "name" и сам элемент "date"<br>
+                    Требует токен <br>
+                    <b>body:</b>  {"name", "data"}
+                </td>
+              </tr>
               <tr class="body-td">
                 <td class="body-cell">http://192.168.2.10:3131/api/at-order/add</td>
                 <td>

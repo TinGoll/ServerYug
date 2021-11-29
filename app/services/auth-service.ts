@@ -1,11 +1,13 @@
 import User from "../entities/User";
 import ApiError from "../exceptions/ApiError";
-import users from "../systems/users";
+import users, { getUser, getUserToID } from "../systems/users";
 import jwt from "jsonwebtoken"
 import settings from "../settings";
 import links from "../systems/links";
 import jfunction from '../systems/virtualJournalsFun';
 import { ILoginData } from "../types/auth-types";
+import { createItmDb } from "../firebird/Firebird";
+import bcrypt from 'bcryptjs';
 
 class AuthService {
     /** Регистрация нового пользователя */
@@ -48,7 +50,27 @@ class AuthService {
     /** Вход в систему */
     async login(userName: string, password: string, barcode: string | undefined) {
         try {
-            
+            const db = await createItmDb();
+            if (barcode) {
+                const [code] = await db.executeRequest<{ID_EMPLOYERS: number, ID_SECTOR: number, STATUS: number}>(`
+                    select B.ID_EMPLOYERS, B.ID_SECTOR, coalesce(B.STATUS_BARCODE, 0) as STATUS
+                    from SECTORS_BARCODE B where upper(B.BARCODE) = upper(?)`, [barcode]);
+                db.detach();
+                if (!code) throw ApiError.BadRequest("Некорректный штрих - код.");
+                if (!code.ID_EMPLOYERS || !code.ID_SECTOR || code.ID_SECTOR == 14) throw ApiError.BadRequest("Карточка не активирована, обратитесь к администрации.");
+                if (code.STATUS != 0) throw ApiError.BadRequest("Карточка заблокирована, обратитесь к администрации.");
+                const candidateBarcode = await getUserToID(code.ID_EMPLOYERS);
+                if (!candidateBarcode) throw ApiError.BadRequest("Пользователь по данному штрих - коду не найден.");
+                const loginDataToBarcode = await this.getLoginData(candidateBarcode!);
+                return loginDataToBarcode;
+            }
+            if (!userName) throw ApiError.BadRequest("Некорректное имя пользователя.")
+            const user = await getUser(userName);
+            if (!user) throw ApiError.BadRequest(`Пользователя ${userName} не существует.`);
+            const isMatch = await bcrypt.compare(user?.getPasword() as string, password);
+            if (!isMatch) throw ApiError.BadRequest(`Неверный пароль.`)
+            const loginData = await this.getLoginData(user);
+            return loginData;
         } catch (e) {
             throw e;
         }

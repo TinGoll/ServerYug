@@ -1,6 +1,7 @@
 import express, { Application, NextFunction, Request, Response } from 'express';
 import { errorMiddleware } from './app/middlewares/error-middleware';
 import config  from './config/index'
+import authRouter from './app/routes/auth-router';
 
 const app: Application = express();
 
@@ -14,9 +15,13 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
     next();
 })
+
 app.use(express.static(__dirname + "/public"))
 
-config.routersAuth(app, '/api');
+app.use('/api', authRouter); // Авторизация и создание новых пользователей.
+
+//config.routersAuth(app, '/api');
+
 config.routesAtOrder(app, '/api');
 
 config.routesJournals(app, '/api');

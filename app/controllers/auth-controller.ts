@@ -8,6 +8,7 @@ class AuthController {
     async register (req: Request, res: Response, next: NextFunction) {
         try {
             const data: ICreateUserOptions = req.body;
+
             const loginData = await authService.registration(data);
             res.status(201).json(loginData);
         } catch (e) {

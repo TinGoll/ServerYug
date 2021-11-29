@@ -1,7 +1,5 @@
 import db from '../dataBase';
 import _ from 'lodash';
-import users from '../systems/users';
-import { format } from 'date-format-parse';
 import User from '../entities/User';
 import { JournalDataDb, JournalDataDto, JournalName, JournalOrderDto, JournalPermission, JournalPlans, JournalPlansDb, JournalSectorDto, JournalSectorList, JournalStatusListOldDb } from '../types/journalTypes';
 
@@ -46,6 +44,7 @@ const permissionSet = async (user: User): Promise<JournalName[]> => {
         return [];
     } 
 }
+
 //Функции журналов
 
 const getIdSectorArrToNameOldSector = async (oldname: string): Promise<number[]> => {
@@ -118,7 +117,6 @@ const initSectors = async (): Promise<JournalSectorList[]> => {
         console.log(error);
         return sectorsList;
     }
-    
 }
 
 const getStatuses = async (): Promise<JournalStatusListOldDb[]> => {
@@ -163,7 +161,6 @@ const workTime = (startDate: Date | null): number => {
 
 const getJournalToId = async (id: number, sect: number[] = []): Promise<JournalSectorDto[]> => {
     try {
-
         const sectorsDep: any[] = await db.executeRequest(`SELECT DISTINCT D.ID_SECTOR_TRANSFER FROM JOURNAL_DEP D WHERE D.ID_JOURNAL_NAME = ${id}`);
         if (sect.length) {
             for (const s of sect) {sectorsDep.push({ID_SECTOR_TRANSFER: s});}
@@ -196,7 +193,8 @@ const getJournalToId = async (id: number, sect: number[] = []): Promise<JournalS
                     FROM ORDERS_IN_PROGRESS O
                     LEFT JOIN ORDERS_DATE_PLAN P ON (P.ORDER_ID = O.ID)
                     LEFT JOIN SECTORS_OLD S ON (P.DATE_DESCRIPTION = S.NAME_OLD_SECTOR)
-                    WHERE S.ID_NEW_SECTOR IN (${sectorsDep.map(s => s.ID_SECTOR_TRANSFER).join(', ')})) ORD
+                    LEFT JOIN CLIENTS C ON (UPPER(O.CLIENT) = UPPER(C.CLIENTNAME))
+                    WHERE (C.PROFILER != 1 OR (C.PROFILER IS NULL)) AND S.ID_NEW_SECTOR IN (${sectorsDep.map(s => s.ID_SECTOR_TRANSFER).join(', ')})) ORD
 
                 LEFT JOIN LOCATION_ORDER L ON (L.ID_ORDER = ORD.ID AND ORD.ID_NEW_SECTOR = L.ID_SECTOR)
                 LEFT JOIN JOURNALS J ON
@@ -208,9 +206,7 @@ const getJournalToId = async (id: number, sect: number[] = []): Promise<JournalS
                     )
                 )
                 WHERE (J.ID IS NULL OR (L.ID_SECTOR IS NOT NULL))
-                ORDER BY ORD.DATE3
-                `;
-
+                ORDER BY ORD.DATE3`;
         let journal: JournalSectorDto[] = [];
         const res = await db.executeRequest(query); // Получаем данные из базы
         /** Обработка дынных **/
@@ -219,7 +215,6 @@ const getJournalToId = async (id: number, sect: number[] = []): Promise<JournalS
         let sectors: JournalSectorDto[] = _.uniqBy(res, obj => obj.ID_NEW_SECTOR).map(s => {
             return {id: s.ID_NEW_SECTOR, name: s.S_NAME, overdue: [], forToday: [], forFuture: []}
         });
-
         if (!sectorsList.length) await initSectors();
         sectors = sectors.sort((a, b) => {
             const orderA = (sectorsList.find(s => s?.name == a?.name))?.orderBy || 0;
@@ -229,6 +224,7 @@ const getJournalToId = async (id: number, sect: number[] = []): Promise<JournalS
             return 0;
         });
 
+        console.time('Сборка объекта');
         for (const sector of sectors) {
             const orders: JournalOrderDto[] = _.uniqWith(res.filter(o => o.ID_NEW_SECTOR == sector.id)
                 .map(o => {
@@ -247,21 +243,24 @@ const getJournalToId = async (id: number, sect: number[] = []): Promise<JournalS
                         }
                     }
                 }), _.isEqual);
-
                 for (const order of orders) {
                     order.data.comments = orderComments
                     .filter(c => c.ORDER_ID == order.id)
                     .map(c => {
                         return {id: c.DATA_ID, sector: c.SECTOR, userId: c.ID_EMPLOYEE, userName: c.EMP_NAME, text: c.DATA_VALUE}
-                    }) 
+                    })
                 }
             const now = new Date();
             const toDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())?.valueOf();
+
             sector.overdue      = orders.filter(o => o.datePlan?.valueOf() < toDay); // Просроченые
             sector.forToday     = orders.filter(o => o.datePlan?.valueOf() == toDay); // На сегодня
             sector.forFuture    = orders.filter(o => o.datePlan?.valueOf() > toDay); // Будущие
-            journal.push(sector)
+
+            journal.push(sector);
         }
+        console.timeEnd('Сборка объекта');
+
         return journal;
     } catch (error) {throw error;}
 }

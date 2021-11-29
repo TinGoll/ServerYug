@@ -1,11 +1,3 @@
-export declare interface BarcodesDb {
-    BARCODE: string
-    ID_SECTOR: number; 
-    SECTOR: string;
-    ID_EMPLOYEE: number | null;
-    EMPLOYEE: string;
-    BLOCKED: number;
-}
 
 export declare interface OrderBody {
     id?: number;

@@ -36,34 +36,21 @@ const data = [
             query: (opt: QueryOptions): string => {
                 const {$first = '', $skip = '', $where = '', $sort = ''} = opt;
                 let q: string =`SELECT ${$first} ${$skip} DISTINCT
-                O.ID, O.ITM_ORDERNUM,
-                (SELECT NAME FROM SECTORS WHERE ID =
-                                (SELECT FIRST 1 T2.ID_SECTOR
-                                FROM JOURNALS J2
-                                LEFT JOIN JOURNAL_TRANS T2 ON (T2.ID_JOURNAL = J2.ID)
-                                WHERE T2.MODIFER = - 1 AND
-                                    J2.ID = J.ID)
-                ) AS TRANSFER,
-
-                SECTOR.NAME AS ACCEPTED, 
-                S.STATUS_DESCRIPTION, GET_STATUS_NAME(GET_JSTATUS_ID(O.ID)) AS STATUS_NAME,
-                O.ORDER_FASADSQ, J.TRANSFER_DATE, J.ID AS JOURNAL_ID
-
+                    O.ID, O.ITM_ORDERNUM, O.ORDER_FASADSQ, O.ORDER_GENERALSQ,
+                    GET_STATUS_NAME_TO_NUM(O.ORDER_STATUS) AS STATUS_DESCRIPTION,
+                    GET_STATUS_NAME(GET_JSTATUS_ID(O.ID)) AS STATUS_NAME,
+                    J.ID AS JOURNAL_ID,  J.TRANSFER_DATE, J.ID_JOURNAL_NAMES,
+                    T.ID_EMPLOYEE, T.ID_SECTOR, T.MODIFER
                 FROM JOURNALS J
                 LEFT JOIN ORDERS O ON (J.ID_ORDER = O.ID)
-                LEFT JOIN CLIENTS C ON (O.CLIENT = C.CLIENTNAME)
-                LEFT JOIN LIST_STATUSES S ON (O.ORDER_STATUS = S.STATUS_NUM)
                 LEFT JOIN JOURNAL_TRANS T ON (T.ID_JOURNAL = J.ID)
-                LEFT JOIN SECTORS SECTOR ON (T.ID_SECTOR = SECTOR.ID)
-
                 ${$where}
                 ${$sort}`;
                 return q;
             },
             defaultOptions: {
                 $first: '100',
-                $sort: 'J.TS desc',
-                $where: 'T.MODIFER = 1' // обязательный параметр
+                $sort: 'J.TRANSFER_DATE desc'
             }
         },
          {
@@ -75,7 +62,6 @@ const data = [
                         SELECT ${$first} ${$skip} DISTINCT O.ID
                         FROM JOURNALS J
                         LEFT JOIN ORDERS O ON (J.ID_ORDER = O.ID)
-                        LEFT JOIN JOURNAL_TRANS T ON (T.ID_JOURNAL = J.ID)
                         ${$where}
                         ${$sort}
                     ) ORDER BY ID`;
@@ -83,8 +69,7 @@ const data = [
             },
             defaultOptions: {
                 $first: '100',
-                $sort: 'J.TS desc',
-                $where: 'T.MODIFER = 1' // обязательный параметр
+                $sort: 'J.TRANSFER_DATE desc'
             }
         },
         {

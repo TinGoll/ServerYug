@@ -1,5 +1,6 @@
 import { Router } from 'express';
-import barcodeController from '../systems/barcode-controller';
+import extraDataController from '../controllers/extra-data-controller';
+import { authMiddleware } from '../middlewares/auth-middleware';
 
 const router = Router();
 // Пост запросы
@@ -10,9 +11,11 @@ const router = Router();
  *      "barcodeAccepted": "barcode"
  * }
  */
-router.post(
-    '/get',
-    barcodeController.getParametersExtraPack
-    );
+// /api/extra-data/get
+router.post('/get', extraDataController.getParametersExtraPack);
+// /api/extra-data/add
+router.post('/add', authMiddleware, extraDataController.addData);
+// /api/extra-data/delete
+router.delete('/delete', authMiddleware, extraDataController.deleteData);
 
 export default router;

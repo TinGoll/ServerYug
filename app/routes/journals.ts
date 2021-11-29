@@ -10,7 +10,7 @@ import _ from 'lodash';
 import { JournalAdoptedDb, JournalAdoptedDto, JournalCommentDto, JournalDataDb, JournalDataDto, JournalName, JournalSectorDto } from "../types/journalTypes";
 import { QueryOptions } from "../types/queryTypes";
 import User from "../entities/User";
-import { getUserToToken } from "../systems/users";
+import { getAllUsers, getUserToToken } from "../systems/users";
 import ApiError from "../exceptions/ApiError";
 import { createItmDb } from "../firebird/Firebird";
 
@@ -128,6 +128,8 @@ router.get (
         const defaultError: string = 'Ошибка получения принятых заказов';
         const permissionName: string = 'Journals [adopted] get';
         try {
+
+            console.time('FirstWay');
             const db = await createItmDb();
             const options: QueryOptions   = {...atOrderQuery.getdefaultOptions('get_adopted')} as QueryOptions;
             const limit: number                 = req.query._limit as any || 100;
@@ -155,7 +157,7 @@ router.get (
             if(!journal) throw ApiError.Forbidden(['У тебя нет прав на получение данных этого журнала. Обратись а администатору.']);
             // Конец проверки прав.
             if (find && find > 0) {
-                options.$where =  `${options.$where} and J.ID_JOURNAL_NAMES in (${journal.j.join(', ')})`;
+                options.$where =  `J.ID_JOURNAL_NAMES in (${journal.j.join(', ')})`;
             }
             if (dateFirst) options.$where =  `${options.$where} and CAST(J.TS as date) >= '${format(dateFirst, 'DD.MM.YYYY')}'`;
             if (dateSecond) options.$where =  `${options.$where} and CAST(J.TS as date) <= '${format(dateSecond, 'DD.MM.YYYY')}'`;
@@ -168,9 +170,7 @@ router.get (
                         O.ORDERNUM || '_' || O.FASAD_MAT || '_' ||
                         O.FASAD_MODEL || '_' ||
                         O.TEXTURE || '_' || O.COLOR || '_' ||
-                        O.PRIMECH || '_' || O.ORDER_TYPE || '_' ||
-                        S.STATUS_DESCRIPTION || '_' || SECTOR.NAME
-                        || '_' || C.CITY)
+                        O.PRIMECH || '_' || O.ORDER_TYPE)
                     like '%${f.toUpperCase()}%'`;
                 }
             }
@@ -182,24 +182,55 @@ router.get (
             const [count]       = await db.executeRequest<{COUNT: number}>(queryCount);
             const dataDb        = await db.executeRequest<JournalDataDb>(queryData);
 
-            const orders: JournalAdoptedDto[] = ordersDb.map(o => {
-                const comments =  dataDb.filter(d => d.ID_ORDER === o.ID && d.DATA_GROUP.toUpperCase() === 'Comment'.toUpperCase()).map(d => convertJournalDataDbToDto(d));
-                const extraData = dataDb.filter(d => d.ID_JOURNAL === o.JOURNAL_ID && d.DATA_GROUP.toUpperCase() !== 'Comment'.toUpperCase()).map(d => convertJournalDataDbToDto(d));
+            db.detach();
+
+            const users = await getAllUsers();
+            const sectors = await jfunction.getSectors();
+            const adoptedOrders = _.uniqWith(ordersDb.map(o => {
+                return {
+                    ID: o.ID, 
+                    ITM_ORDERNUM: o.ITM_ORDERNUM,
+                    JOURNAL_ID: o.JOURNAL_ID,
+                    ORDER_FASADSQ: o.ORDER_FASADSQ,
+                    ORDER_GENERALSQ: o.ORDER_GENERALSQ,
+                    STATUS_DESCRIPTION: o.STATUS_DESCRIPTION,
+                    STATUS_NAME: o.STATUS_NAME,
+                    TRANSFER_DATE: o.TRANSFER_DATE,
+                    ID_JOURNAL_NAMES: o.ID_JOURNAL_NAMES
+                }
+            }), _.isEqual);
+
+            const orders: JournalAdoptedDto[] = [];
+            for (const adoptedOrder of adoptedOrders) {
+
+                const transferData      = ordersDb.find(d => d.JOURNAL_ID === adoptedOrder.JOURNAL_ID && d.MODIFER < 0);
+                const acceptedData      = ordersDb.find(d => d.JOURNAL_ID === adoptedOrder.JOURNAL_ID && d.MODIFER > 0);
+
+                const transferUser      = users.find(u => u.id === transferData?.ID_EMPLOYEE);
+                const transferSector    = sectors.find(s => s.id === transferData?.ID_SECTOR);
+                const acceptedUser      = users.find(u => u.id === acceptedData?.ID_EMPLOYEE);
+                const acceptedSector    = sectors.find(s => s.id === acceptedData?.ID_SECTOR);
+
+                const comments =  dataDb.filter(d => d.ID_ORDER === adoptedOrder.ID && d.DATA_GROUP.toUpperCase() === 'Comment'.toUpperCase()).map(d => convertJournalDataDbToDto(d));
+                const extraData = dataDb.filter(d => d.ID_JOURNAL === adoptedOrder.JOURNAL_ID && d.DATA_GROUP.toUpperCase() !== 'Comment'.toUpperCase()).map(d => convertJournalDataDbToDto(d));
+
                 const order: JournalAdoptedDto = {
-                    id:             o.ID,
-                    itmOrderNum:    o.ITM_ORDERNUM,
-                    transfer:       o.TRANSFER,
-                    accepted:       o.ACCEPTED,
-                    statusOld:      o.STATUS_DESCRIPTION,
-                    status:         o.STATUS_NAME,
-                    fasadSquare:    o.ORDER_FASADSQ,
-                    date:           o.TRANSFER_DATE,
+                    id:             adoptedOrder.ID,
+                    itmOrderNum:    adoptedOrder.ITM_ORDERNUM,
+                    transfer:       `${transferUser?.userName || '-'} / ${transferSector?.name || 'Не определен'}`,
+                    accepted:       `${acceptedUser?.userName || '-'} / ${acceptedSector?.name || 'Не определен'}`,
+                    statusOld:      adoptedOrder.STATUS_DESCRIPTION,
+                    status:         adoptedOrder.STATUS_NAME || 'Не определен',
+                    fasadSquare:    adoptedOrder.ORDER_FASADSQ,
+                    date:           adoptedOrder.TRANSFER_DATE,
                     data:           {comments, extraData}
                 }
-                return order;
-            });
+                orders.push(order);
+            }
             const pages         = count.COUNT ? Math.ceil(count.COUNT / (options.$first || 100)) : 0;
-            db.detach();
+
+            console.timeEnd('FirstWay');
+
             return res.json({orders, count: count.COUNT , pages: pages});
         } catch (e) {next(e);}
     }
@@ -237,13 +268,26 @@ router.get(
                 case 6:
                     // Все сектора.
                     const allSectors = await jfunction.getSectors();
-                    const allSectorsId = allSectors.map(s => s.id);
+                    const allSectorsId = allSectors.filter(s => s.id != 23).map(s => s.id);
+                    console.time('Получение журнала');
                     journal = await jfunction.getJournalToId(id, allSectorsId);
+                    console.timeEnd('Получение журнала');
+                    // Сортировка по сотрудникам
+                    console.time('Сортировка');
+                    for (const s of journal) {
+                        s.overdue   = s.overdue.sort((a, b) => {return a.nameSectorInOrder.localeCompare(b.nameSectorInOrder);});
+                        s.forToday  = s.forToday.sort((a, b) => {return a.nameSectorInOrder.localeCompare(b.nameSectorInOrder);});
+                        s.forFuture = s.forFuture.sort((a, b) => {return a.nameSectorInOrder.localeCompare(b.nameSectorInOrder);});
+                    }
+                    console.timeEnd('Сортировка');
+                    // Конец сортировки
                     break;
                 default:
                     break;
             }
             if (!journal.length) throw ApiError.BadRequest(defaultError, ['Такой журнал не существует.']);
+
+
             return res.json({journal});
 
         } catch (e) {next(e);}

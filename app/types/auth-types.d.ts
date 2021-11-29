@@ -7,7 +7,6 @@ export declare interface ICreateUserOptions {
     otherData?: any;
 }
 
-
 export declare interface ILink {
     link: string; 
     status: boolean;
@@ -20,9 +19,9 @@ export declare interface ILoginData {
 
 export declare interface IUserDto {
     userName:       string;
-    firstName?:      string;
-    lastName?:       string;
-    middleName?:     string;
+    firstName?:     string;
+    lastName?:      string;
+    middleName?:    string;
     isOwner:        boolean;
     sectorId:       number;
     sectorName:     string;
