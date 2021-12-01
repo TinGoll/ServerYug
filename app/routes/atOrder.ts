@@ -368,7 +368,6 @@ router.post(
     async (req: Request, res: Response, next: NextFunction) => {
         try {
             const data: ITransferOrders = req.body;
-    
             const result = await atOrderService.transferOrders(data);
             return res.status(201).json(result)
         } catch (e) {

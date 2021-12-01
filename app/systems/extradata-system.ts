@@ -2,6 +2,7 @@ import { IExtraData, IExtraDataDb } from "../types/extraDataTypes";
 import db from '../dataBase';
 import { createItmDb } from "../firebird/Firebird";
 import ApiError from "../exceptions/ApiError";
+import { ExtraDataType } from "../enums/extra-data-enums";
 //const _     = require('lodash');
 
 export const getParametersExtraPack = async (barcodeTransfer: string, barcodeAccepted: string): Promise<IExtraData[]> => {
@@ -97,11 +98,11 @@ export const createExtraData = async () => {
 
 const setExtraData = async (data: IExtraData[]): Promise<number> => {
     try {
-        if(!data.length) throw new Error();
+        if(!data.length) return 0;
         const query: string = `EXECUTE BLOCK RETURNS (AMOUNT INTEGER) AS DECLARE VARIABLE C INTEGER = 0; BEGIN\n${
             data.map(d => {
                 const txt: string = (d?.journalId && d?.group && d?.name && d?.data) ?
-                `INSERT INTO JOURNAL_DATA (ID_JOURNAL, DATA_GROUP, DATA_NAME, DATA_VALUE) values (${d?.journalId}, '${d?.group}', '${d?.name}', '${d?.data}'); :C = :C+1;\n`
+                `INSERT INTO JOURNAL_DATA (ID_ORDER, ID_JOURNAL, DATA_GROUP, DATA_NAME, DATA_VALUE, DATA_TYPE) values (${d?.orderId||null}, ${d?.journalId}, '${d?.group}', '${d?.name}', '${d?.data}', '${d.type}'); :C = :C+1;\n`
                 : '';
                 return txt
             }).join('')}:AMOUNT = :C; SUSPEND; END;`;

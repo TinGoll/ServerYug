@@ -8,6 +8,7 @@ import setExtraData from "../systems/extradata-system";
 import { format } from 'date-format-parse';
 
 import atOrderQuery from '../query/atOrder';
+import { IExtraData } from "../types/extraDataTypes";
 
 class AtOrderService {
     /**
@@ -54,16 +55,18 @@ class AtOrderService {
                 // Деревянно, переделать
                 if (transfer?.idSector == 5 && accepted?.idSector == 24) transfer.idSector = 23;
 
-                // Получаем зависимости
-                const dependenciesDb = await db.executeRequest<IDependenciesDb>(
-                    `SELECT * FROM JOURNAL_DEP D WHERE D.ID_SECTOR_TRANSFER = ? AND D.ID_SECTOR_ACCEPTED = ?`, 
-                    [transfer?.idSector||null, accepted?.idSector||null]);
-                
-                const dependencies: IDependencies[] = dependenciesDb.map(d => dtoConverter.convertDependenciesDbToDto(d));
+
+
+                const [dependencies, rdependencies] = await this.dependenciesValidator(transfer?.idSector, accepted?.idSector)
 
                 // Если в зависимости передающий этап являеться стартовым.
                 const isStartingStage = (dependencies.find(d => d.startStage))?.startStage || false;
-                if (!dependencies.length) transferOrderErrors.push(`Участок ${transfer?.sector} не может передавать заказы в участок ${accepted?.sector}.`);
+                if (!dependencies.length) {
+                    transferOrderErrors.push(`Участок "${transfer?.sector}" не может передавать заказы в участок "${accepted?.sector}".`);
+                    if(rdependencies) 
+                        transferOrderErrors.push(`Однако, участок "${accepted?.sector}" может передавать заказы участку "${transfer?.sector}", проверьте правильность отсканированных карт.`)
+                } 
+                
                 const ordersToString = transferOrders.orders.map(o => o.idOrder).join(', ');
 
                 const ordersFromDb = await db.executeRequest<IAtOrdersDb>(
@@ -90,6 +93,7 @@ class AtOrderService {
                 const ordersAt = ordersFromDb.map(o => dtoConverter.convertAtOrderDbToDto(o));
                 const orderWorks = orderWorksDb.map(w => dtoConverter.convertWorkOrdersDbToDto(w));
                 const locationOrders =  orderLocationsDb.map(l => dtoConverter.convertLocationOrderDbToDto(l));
+                const ordersExtraData: IExtraData[] = transferOrders.extraData || [];
 
                 if (!ordersAt.length) transferOrderErrors.push('Ни один из указанных заказов, не может быть передан, в виду отсутствия их в работе. Обратитесь к менеджеру заказа.');
                 if(transferOrderErrors.length) throw ApiError.BadRequest("Ошибка приема - передачи заказов.", transferOrderErrors);
@@ -101,9 +105,31 @@ class AtOrderService {
                     order.modiferCount = 1;
 
                     const orderDb = ordersAt.find(o => o.id === order?.idOrder);
-                    const works = orderWorks.filter(w => w.orderId === order.idOrder);
+                    const works = orderWorks?.filter(w => w.orderId === order.idOrder);
                     const location = locationOrders.find(l => l.orderId === order.idOrder);
-                    const extraData = transferOrders.extraData.filter(e => e.orderId === order.idOrder);
+                    // Старый вариант комментария, обеденяем с новым через доп-свойства
+                    if (order.comment) {
+                        const extraComment = ordersExtraData.find(e => e.orderId === order.idOrder && e.group.toUpperCase() === 'Comment'.toUpperCase());
+                        if (extraComment) {
+                            if(extraComment.data?.toUpperCase() !== order.comment.toUpperCase()) {
+                                extraComment.data += `, ${order.comment}`;
+                            }
+                        }else{
+                            const commentData: IExtraData ={
+                                orderId: order.idOrder,
+                                journalId: 0,
+                                group: "Comment",
+                                type: "text",
+                                name: "Комментарий",
+                                list: [],
+                                data: order.comment
+                            }
+                            ordersExtraData.push(commentData);
+
+                        }
+                    }
+                    // Получаем все экстра - данные по этому заказу.
+                    const extraData = ordersExtraData.filter(e => e.orderId === order.idOrder);
 
                     if(!order?.idOrder || !orderDb) {
                         order.completed = false;
@@ -183,11 +209,11 @@ class AtOrderService {
                     }
                 }
 
-                if (transferOrders.extraData &&transferOrders.extraData?.length) {
-                    const countExtraData = await setExtraData(transferOrders.extraData);
+                if (ordersExtraData && ordersExtraData?.length) {
+                    const countExtraData = await setExtraData(ordersExtraData);
                 } 
 
-                const countOrders = transferOrders.orders.filter(o => o.completed).length;
+                const countOrders = transferOrders.orders?.filter(o => o.completed).length;
                 let message = `${countOrders ? '☑️ Принято ' + countOrders + ' из ' + transferOrders.orders.length : '❌ Не один из заказов не принят.'}`;
                 if (countOrders == transferOrders.orders.length)  message = `✅ Все заказы приняты. (${transferOrders.orders.length})`;
                 return {message, orders: transferOrders.orders};
@@ -197,6 +223,37 @@ class AtOrderService {
         } catch (e) {throw e;}
 
     }
+
+    /**
+     * 
+     * @param transferSectorId - Передающий участок (ID)
+     * @param acceptedSectorId - Принимающий участок (ID)
+     * @returns - Массив из двух элементов, с массивом зависимостей. Первый элемент стандартные зависимости, второй реверсивные. Для проверки обратной передачи.
+     */
+    async dependenciesValidator (transferSectorId?: number, acceptedSectorId?: number): Promise<Array<IDependencies[]>> {
+        try {
+            const db = await createItmDb();
+            try {
+                // Получаем зависимости
+                const dependenciesDb = await db.executeRequest<IDependenciesDb>(
+                    `SELECT * FROM JOURNAL_DEP D WHERE D.ID_SECTOR_TRANSFER = ? AND D.ID_SECTOR_ACCEPTED = ?`, 
+                    [transferSectorId||null, acceptedSectorId||null]);
+                const dependencies: IDependencies[] = dependenciesDb.map(d => dtoConverter.convertDependenciesDbToDto(d));
+                const reverseDependenciesDb = await db.executeRequest<IDependenciesDb>(
+                    `SELECT * FROM JOURNAL_DEP D WHERE D.ID_SECTOR_TRANSFER = ? AND D.ID_SECTOR_ACCEPTED = ?`, 
+                    [acceptedSectorId||null, transferSectorId||null]);
+                const reverseDependencies: IDependencies[] = reverseDependenciesDb.map(d => dtoConverter.convertDependenciesDbToDto(d));
+                return [dependencies, reverseDependencies]
+            } catch (e) {
+                throw e;
+            } finally {
+                db.detach();
+            }
+        } catch (e) {
+            throw e;
+        }
+    }
+
 
     barcodeValidator (transfer?: IBarcode, accepted?: IBarcode): string[] {
         const errors: string[] = [];

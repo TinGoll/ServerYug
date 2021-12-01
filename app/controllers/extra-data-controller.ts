@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import ApiError from "../exceptions/ApiError";
+import extraDataService from "../services/extra-data-service";
 import { addItemInListExtraData, deleteItemInListExtraData, getParametersExtraPack } from "../systems/extradata-system";
 
 
@@ -31,7 +32,9 @@ class ExtraDataController {
             const { barcodeTransfer, barcodeAccepted } = req.body;
             if (!barcodeTransfer || !barcodeAccepted) 
                     throw ApiError.BadRequest('Для получения параметров, необходимо указать передающий и принимающий участок.');
-            const extraData = await getParametersExtraPack(barcodeTransfer, barcodeAccepted);
+
+            const extraData = await extraDataService.getParametersExtraPack(barcodeTransfer, barcodeAccepted);
+
             res.status(200).json(extraData);
         } catch (e) {next(e);}
     }
