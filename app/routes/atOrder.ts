@@ -13,6 +13,10 @@ import { BarcodesDb, ITransferOrders } from '../types/at-order-types';
 import atOrderService from '../services/at-order-service';
 
 
+import { default as PQueue } from 'p-queue';
+
+const queue = new PQueue({concurrency: 1});
+
 
 // /api/at-order/
 const router = Router();
@@ -170,8 +174,7 @@ router.get(
             if(!idJournalName) throw new Error('Не корректный id журнала.');
             const journals = await jfunction.permissionSet(user);
             const journal = journals.find(j => j.id == idJournalName); // получаем обект журнала.
-            if(!journal) return res.status(500)
-                .json({errors: ['У тебя нет прав на получение данных этого журнала. Обратись а администатору.'], message: defaultError});
+            if(!journal) throw ApiError.Forbidden(['У тебя нет прав на получение данных этого журнала. Обратись а администатору.']);
             // Конец проверки прав.
 
             const query: string = `select O.ID, O.ITM_ORDERNUM, J.ID as ID_JOIRNAL, P.ID_SECTOR, S.NAME as SECTOR, 
@@ -260,6 +263,7 @@ router.patch(
                 throw ApiError.Forbidden(['У тебя нет прав на закрытие расчетного периода. Обратись к администатору.'])
         // Проверка, есть ли заказы для закрытия периода.
         const {sectors} = req.body as any;
+
         let isEmpty = true;
         if (sectors && sectors.length) 
             for (const sector of sectors)
@@ -305,9 +309,18 @@ router.patch(
                  // Доп списания / начисления
                 if (sector.otherTransactoins.data.length > 0) {
                     for (const otherTransaction of sector.otherTransactoins.data) {
+                        console.log(otherTransaction);
+                        
                         //if (!otherTransaction.userName) continue;
                         if (!otherTransaction.amount) continue;
-                        if (!(otherTransaction.modifer == 1 )|| !(otherTransaction.modifer == -1)) continue;
+                        if (otherTransaction.modifer !== 1 && otherTransaction.modifer !== -1) continue;
+                        console.log(`
+                            insert into OTHER_TRANSACTIONS (ID_TRANSACTION, ID_SECTOR, NAME, DESCRIPTION, AMOUNT, MODIFER, TRANS_COMMENT) 
+                            values (${transaction.ID}, ${sector.id}, '${otherTransaction.userName}', 
+                                '${otherTransaction.description}', ${Math.abs(otherTransaction.amount)}, 
+                                ${otherTransaction.modifer}, ${otherTransaction.comment ? '\'' + otherTransaction.comment + '\'' : null})
+                        `);
+                        
 
                         await db.executeRequest(`
                             insert into OTHER_TRANSACTIONS (ID_TRANSACTION, ID_SECTOR, NAME, DESCRIPTION, AMOUNT, MODIFER, TRANS_COMMENT) 
@@ -359,6 +372,12 @@ router.patch(
 
 // /api/at-order/add
 
+
+
+async function queueTransferOrders(data: ITransferOrders) {
+  return queue.add(() => atOrderService.transferOrders(data));
+}
+
 router.post(
     '/add',
     [
@@ -368,7 +387,7 @@ router.post(
     async (req: Request, res: Response, next: NextFunction) => {
         try {
             const data: ITransferOrders = req.body;
-            const result = await atOrderService.transferOrders(data);
+            const result = await queueTransferOrders(data);
             return res.status(201).json(result)
         } catch (e) {
             next(e);

@@ -1,3 +1,4 @@
+import { IAdoptedOrder, IAdoptedOrderDb } from "../types/adopted-orders-types";
 import { BarcodesDb, IAtOrder, IAtOrdersDb, IBarcode, IDependencies, IDependenciesDb, ILocationOrder, ILocationOrderDb, IWorkOrders, IWorkOrdersDb } from "../types/at-order-types";
 import { JournalDataDb, JournalDataDto } from "../types/journalTypes";
 
@@ -80,7 +81,6 @@ class DtsConverter {
         }
         return result;
     }
-    
 }
 
 export default new DtsConverter();

@@ -36,21 +36,6 @@ export declare interface JournalPlansDb {
     DATE3: Date;
 }
 
-export declare interface JournalAdoptedDto {
-    id: number;
-    itmOrderNum: string;
-    transfer: string;
-    accepted: string;
-    statusOld: string;
-    status: string;
-    fasadSquare: number;
-    date: Date;
-    data: {
-        comments?: JournalDataDto[],
-        extraData?: JournalDataDto[]
-    } 
-}
-
 export declare interface JournalDataDto {
     id?: number;
     journalId?: number;

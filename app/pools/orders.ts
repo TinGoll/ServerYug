@@ -145,6 +145,7 @@ const finderEngine = async (txt: string) => {
                 findStr = findStr.replace(regX, '').replace(/ +/g, ' ');
             }
         }
+        
         queryStatuses   = _.uniqWith(queryStatuses, _.isEqual);
         queryKeyword    = _.uniqWith(queryKeyword, _.isEqual);
         let queryArr: string[]    = findStr.trim().split(' ');

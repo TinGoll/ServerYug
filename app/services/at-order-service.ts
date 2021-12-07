@@ -1,5 +1,5 @@
 import { createItmDb } from "../firebird/Firebird";
-import { BarcodesDb, IAtOrdersDb, IBarcode, IDependencies, IDependenciesDb, ILocationOrderDb, ITransferOrderElement, ITransferOrders, IWorkOrdersDb } from "../types/at-order-types";
+import { BarcodesDb, IAtOrdersDb, IBarcode, IDependencies, IDependenciesDb, ILocationOrderDb, IStatusAndLocation, IStatusAndLocationDb, ITransferOrderElement, ITransferOrders, IWorkOrdersDb } from "../types/at-order-types";
 
 import jfunction from '../systems/virtualJournalsFun';
 import dtoConverter from "../systems/dtoConverter";
@@ -95,7 +95,8 @@ class AtOrderService {
                 const locationOrders =  orderLocationsDb.map(l => dtoConverter.convertLocationOrderDbToDto(l));
                 const ordersExtraData: IExtraData[] = transferOrders.extraData || [];
 
-                if (!ordersAt.length) transferOrderErrors.push('Ни один из указанных заказов, не может быть передан, в виду отсутствия их в работе. Обратитесь к менеджеру заказа.');
+                //if (!ordersAt.length) transferOrderErrors.push('Ни один из указанных заказов, не может быть передан, в виду отсутствия их в работе. Обратитесь к менеджеру заказа.');
+
                 if(transferOrderErrors.length) throw ApiError.BadRequest("Ошибка приема - передачи заказов.", transferOrderErrors);
 
                 for (const order of transferOrders.orders) {
@@ -133,7 +134,18 @@ class AtOrderService {
 
                     if(!order?.idOrder || !orderDb) {
                         order.completed = false;
+                        const statusAndLocation = await this.getOrderStatusAndLocation(order.idOrder);
                         order.description = 'Заказ не может быть переден, так как не находиться в работе, обратитесь к менеджеру заказа.';
+                        if (statusAndLocation && statusAndLocation.statusOldNum >= 9 &&
+                                statusAndLocation.statusOldNum <= 10) {
+                            order.description = 'Заказ уже отгружен.';
+                        }
+                        if (statusAndLocation && statusAndLocation.statusOldId === 19) {
+                            order.description = 'Этот заказ был закрыт, обратитесь к менеджеру."';
+                        }
+                         if (statusAndLocation && statusAndLocation.statusOldNum < 5) {
+                            order.description = `Заказ не был выдан в работу и находиться в статусе ${statusAndLocation.statusOld}`;
+                        }
                         continue;
                     }
                     if (!jfunction.isWorkPlan(namesTransferOldSector, works)) {
@@ -300,6 +312,47 @@ class AtOrderService {
         } catch (e) {
             throw e;
         }
+    }
+
+    
+
+    async getOrderStatusAndLocation(orderId: number): 
+            Promise<IStatusAndLocation|null> {
+        try {
+            const query = ` SELECT
+                            O.MANAGER,
+                            GET_STATUS_NAME_TO_NUM(O.ORDER_STATUS) AS OLD_STATUS,
+                            GET_STATUS_ID_TO_NUM(O.ORDER_STATUS) AS ID_OLD_STATUS,
+                            O.ORDER_STATUS AS OLD_STATUS_NUM,
+                            GET_JSTATUS_ID(O.ID) AS ID_STATUS,
+                            GET_STATUS_NAME(GET_JSTATUS_ID(O.ID)) AS STATUS,
+                            L.ID_SECTOR AS ID_LOCATION,
+                            GET_SECTOR_NAME(L.ID_SECTOR) AS LOCATION
+                            FROM ORDERS O
+                            LEFT JOIN LOCATION_ORDER L ON (L.ID_ORDER = O.ID)
+                            WHERE O.ID = ?`;
+            const db = await createItmDb();
+            const [orderDb] = await db.executeRequest<IStatusAndLocationDb>(query, [orderId]);
+            if (!orderDb) throw ApiError.BadRequest("Ошибка получения данных по заказу.");
+            const locationAndStatus = this.convertStatusAndLocation(orderDb);
+            return locationAndStatus;
+        } catch (e) {
+            console.log(e);
+            return null;
+        }
+    }
+    convertStatusAndLocation(data: IStatusAndLocationDb): IStatusAndLocation {
+        const result: IStatusAndLocation = {
+            statusOldId: data.ID_OLD_STATUS,
+            statusOld: data.OLD_STATUS,
+            statusOldNum: data.OLD_STATUS_NUM,
+            statusId: data.ID_STATUS,
+            status: data.STATUS,
+            manager: data.MANAGER,
+            locationId: data.ID_LOCATION,
+            location: data.LOCATION
+        }
+        return result;
     }
 }
 

@@ -109,3 +109,27 @@ export declare interface ILocationOrder {
     modifer: number;
 }
 
+export declare interface IStatusAndLocation {
+    statusOldId: number; 
+    statusOld: string; 
+    statusOldNum: number;
+    statusId: number | null; 
+    status: string | null;
+    manager: string; 
+    locationId: number | null; 
+    location: string | null;
+}
+
+export declare interface IStatusAndLocationDb {
+    MANAGER: string;
+    OLD_STATUS: string;
+    ID_OLD_STATUS: number;
+    OLD_STATUS_NUM: number;
+    ID_STATUS: number;
+    STATUS: string;
+    ID_LOCATION: number;
+    LOCATION: string;
+}
+
+
+

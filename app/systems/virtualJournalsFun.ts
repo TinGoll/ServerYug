@@ -24,7 +24,7 @@ const permissions: JournalPermission[] = [
     {name: 'Journals [get-journals] get lak', data: [journals[2]]},         // Журнал лакировки
     {name: 'Journals [get-journals] get upak', data: [journals[3]]},        // Журнал упаковки
     {name: 'Journals [get-journals] get buhgalter', data: [journals[4]]},   // Журнал Бухгалтера
-    {name: 'Journals [get-journals] get general', data: [journals[5]]}      // Журнал Бухгалтера
+    {name: 'Journals [get-journals] get general', data: [journals[5]]}      // Журнал Общий
 ];
 
 const sectorsDefault: number[] = [5, 23, 24] //Упаковка, склад отгруженных, отгрузка
@@ -125,7 +125,7 @@ const getStatuses = async (): Promise<JournalStatusListOldDb[]> => {
 }
 
 // Получение списка секторов
-const getSectors = async (): Promise<JournalSectorList[]> => {
+export const getSectors = async (): Promise<JournalSectorList[]> => {
         if (sectorsList.length) return sectorsList;
         return (await initSectors());
 }
@@ -185,7 +185,6 @@ const getJournalToId = async (id: number, sect: number[] = []): Promise<JournalS
                         LEFT JOIN EMPLOYERS EMP ON (EMP.ID = TR.ID_EMPLOYEE)
                         WHERE TR.ID_JOURNAL = J.ID AND TR.MODIFER > 0
                     ), ORD.DATE_SECTOR, 'Не определен') AS DATE_SECTOR,
-
                     ORD.ID_NEW_SECTOR, GET_SECTOR_NAME(ORD.ID_NEW_SECTOR) S_NAME,
                     ORD.DATE3 AS DATE_PLAN, GET_SECTOR_NAME(L.ID_SECTOR) AS LOCATION, J.ID AS J_ID , J.TRANSFER_DATE
                 FROM
@@ -193,9 +192,7 @@ const getJournalToId = async (id: number, sect: number[] = []): Promise<JournalS
                     FROM ORDERS_IN_PROGRESS O
                     LEFT JOIN ORDERS_DATE_PLAN P ON (P.ORDER_ID = O.ID)
                     LEFT JOIN SECTORS_OLD S ON (P.DATE_DESCRIPTION = S.NAME_OLD_SECTOR)
-                    LEFT JOIN CLIENTS C ON (UPPER(O.CLIENT) = UPPER(C.CLIENTNAME))
-                    WHERE (C.PROFILER != 1 OR (C.PROFILER IS NULL)) AND S.ID_NEW_SECTOR IN (${sectorsDep.map(s => s.ID_SECTOR_TRANSFER).join(', ')})) ORD
-
+                    WHERE (O.PROFILER != 1 OR (O.PROFILER IS NULL)) AND S.ID_NEW_SECTOR IN (${sectorsDep.map(s => s.ID_SECTOR_TRANSFER).join(', ')})) ORD
                 LEFT JOIN LOCATION_ORDER L ON (L.ID_ORDER = ORD.ID AND ORD.ID_NEW_SECTOR = L.ID_SECTOR)
                 LEFT JOIN JOURNALS J ON
                     (J.ID_ORDER = ORD.ID AND EXISTS (
@@ -224,7 +221,6 @@ const getJournalToId = async (id: number, sect: number[] = []): Promise<JournalS
             return 0;
         });
 
-        console.time('Сборка объекта');
         for (const sector of sectors) {
             const orders: JournalOrderDto[] = _.uniqWith(res.filter(o => o.ID_NEW_SECTOR == sector.id)
                 .map(o => {
@@ -259,8 +255,6 @@ const getJournalToId = async (id: number, sect: number[] = []): Promise<JournalS
 
             journal.push(sector);
         }
-        console.timeEnd('Сборка объекта');
-
         return journal;
     } catch (error) {throw error;}
 }

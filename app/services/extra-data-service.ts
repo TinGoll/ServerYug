@@ -67,7 +67,17 @@ class ExtraDataService {
             const list:any[] = [];
             const db = await createItmDb();
             const res = await db.executeRequest<{ID: number, LIST_NAME: string, LIST_DATA: string}>(
-                `SELECT * FROM JOURNAL_EXTRA_DATA_LISTS D WHERE UPPER(D.LIST_NAME) = UPPER(?)`, [name]);
+                `SELECT EXTRA_LIST.LIST_DATA FROM (
+                    SELECT DISTINCT E.LIST_DATA,
+                                    (SELECT COUNT(D.ID)
+                                    FROM JOURNAL_DATA D
+                                    WHERE UPPER(D.DATA_NAME) = UPPER('${name}') AND
+                                        UPPER(D.DATA_VALUE) = UPPER(E.LIST_DATA)
+                                    ) AS AMOUNT
+                    FROM JOURNAL_EXTRA_DATA_LISTS E
+                    WHERE UPPER(E.LIST_NAME) = UPPER('${name}')
+                    ) EXTRA_LIST
+                    ORDER BY EXTRA_LIST.AMOUNT DESC`);
             db.detach();
             const sortedArr = res.sort((a, b) => {
                 const dataA = a?.LIST_DATA as string;
