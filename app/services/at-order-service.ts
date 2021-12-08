@@ -9,6 +9,7 @@ import { format } from 'date-format-parse';
 
 import atOrderQuery from '../query/atOrder';
 import { IExtraData } from "../types/extraDataTypes";
+import { clearAdoptedQueryHash } from "../systems/adopted-order-system";
 
 class AtOrderService {
     /**
@@ -228,6 +229,9 @@ class AtOrderService {
                 const countOrders = transferOrders.orders?.filter(o => o.completed).length;
                 let message = `${countOrders ? '☑️ Принято ' + countOrders + ' из ' + transferOrders.orders.length : '❌ Не один из заказов не принят.'}`;
                 if (countOrders == transferOrders.orders.length)  message = `✅ Все заказы приняты. (${transferOrders.orders.length})`;
+                for (const d of dependencies) {
+                    clearAdoptedQueryHash(d.journalNameId);
+                }
                 return {message, orders: transferOrders.orders};
             } catch (e) {throw e;} finally { 
                 console.log('at order - db.detach');

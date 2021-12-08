@@ -17,6 +17,7 @@ export declare interface IAdoptedOrder {
     employeeAccepted:   string;
     statusOld:          string;
     status:             string;
+    statusId:           number|null;
     fasadSquare:        number;
     date:               Date;
     data:           {
@@ -44,6 +45,7 @@ export declare interface IAdoptedOrderDb {
     ORDER_FASADSQ: number|null;
     OLD_STATUS: string
     STATUS: string|null;
+    STATUS_ID: number|null;
     TRANSFER_ID: number;
     TRANSFER_EMPLOYEE_ID: number|null;
     ACCEPTED_ID: number;

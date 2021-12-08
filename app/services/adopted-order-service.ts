@@ -17,14 +17,40 @@ interface IKeyword {
 
 class AdoptedOrderService {
     defaultLimit: number    = 20;  // Лимит по умолчанию.
-    updateTime: number      = 1;    // Минуты
+    updateTime: number      = 10;    // Минуты
+
+    /**
+     *  1	На сборке
+        2	На шлифовке
+        3	Покраска этап №1
+        4	Патина этап №2
+        5	Лак этап №3
+        6	В упаковке
+        7	Упакован
+        8	Отгружен
+
+     */
 
     keywords: IKeyword [] = [
-                {key: 'Сегодня',        value: 'Сегодня'},
-                {key: 'Вчера',          value: 'Вчера'},
-                {key: 'Неделя',         value: 'Неделя'},
-                {key: 'Эта неделя',     value: 'Неделя'},
-                {key: 'Прошлая',        value: 'Неделя'},
+                {key: 'Упакованные',        value: 'Упакован'},
+                {key: 'Упакован',           value: 'Упакован'},
+                {key: 'Запакован',          value: 'Упакован'},
+                {key: 'Запакован',          value: 'Упакован'},
+
+                {key: 'Готов',              value: 'Отгружен'},
+                {key: 'Отправлен',          value: 'Отгружен'},
+                {key: 'Отгружен',           value: 'Отгружен'},
+                {key: 'Отгруженные',        value: 'Отгружен'},
+
+                {key: 'На сборке',          value: 'На сборке'},
+                {key: 'На шлифовке',        value: 'На шлифовке'},
+                {key: 'Покраска',           value: 'Покраска этап №1'},
+                {key: 'Патина',             value: 'Патина этап №2'},
+                {key: 'Лак',                value: 'Лак этап №3'},
+                {key: 'В упаковке',         value: 'В упаковке'},
+
+
+
             ];
     async getAdoptedOrders(httpQueryId:number, journalNamesId: number[], options?: IAdoptedOptions): Promise<IAdopted> {
         try {
@@ -50,13 +76,15 @@ class AdoptedOrderService {
                     const queryOrders = `SELECT O.ID, J.ID as JOURNAL_ID, J.TRANSFER_DATE, O.ITM_ORDERNUM, O.CLIENT, O.MANAGER, O.ORDER_FASADSQ,
                                             GET_STATUS_NAME_TO_NUM(O.ORDER_STATUS) AS OLD_STATUS,
                                             GET_STATUS_NAME(GET_JSTATUS_ID(O.ID)) AS STATUS,
+                                            GET_JSTATUS_ID(O.ID) as STATUS_ID,
                                             (SELECT FIRST 1 T1.ID_SECTOR FROM JOURNAL_TRANS T1 WHERE T1.ID_JOURNAL = J.ID AND T1.MODIFER < 0) AS TRANSFER_ID,
                                             (SELECT FIRST 1 T1.ID_EMPLOYEE FROM JOURNAL_TRANS T1 WHERE T1.ID_JOURNAL = J.ID AND T1.MODIFER < 0) AS TRANSFER_EMPLOYEE_ID,
                                             (SELECT FIRST 1 T2.ID_SECTOR FROM JOURNAL_TRANS T2 WHERE T2.ID_JOURNAL = J.ID AND T2.MODIFER > 0) AS ACCEPTED_ID,
                                             (SELECT FIRST 1 T2.ID_EMPLOYEE FROM JOURNAL_TRANS T2 WHERE T2.ID_JOURNAL = J.ID AND T2.MODIFER > 0) AS ACCEPTED_EMPLOYEE_ID
                                     FROM JOURNALS J
                                     LEFT JOIN ORDERS O ON (J.ID_ORDER = O.ID)
-                                    WHERE J.ID_JOURNAL_NAMES IN (${journalNamesId.join(',')})`;
+                                    WHERE J.ID_JOURNAL_NAMES IN (${journalNamesId.join(',')})
+                                    ORDER BY J.TRANSFER_DATE DESC`;
                     const queryExtraData = `select * from JOURNAL_DATA D
                                         where exists(select j.id
                                         from JOURNALS J
@@ -70,9 +98,10 @@ class AdoptedOrderService {
                     setAdoptedQueryHash({...newHashData});             
                 }
                 if (!newHashData?.noFiltredorders.length) {
-                    clearAdoptedQueryHash();
+                    clearAdoptedQueryHash(httpQueryId);
                     throw ApiError.NotFound();
-                }                    
+                }    
+
                 const limit         = options?.limit||this.defaultLimit;
                 const page          = options?.page||1;
                 const filtredOrders     = this.searchEngine(newHashData?.noFiltredorders, options);
@@ -112,6 +141,7 @@ class AdoptedOrderService {
             manager: data.MANAGER,
             statusOld: data.OLD_STATUS,
             status: data.STATUS||'',
+            statusId: data.STATUS_ID||null,
             fasadSquare: data.ORDER_FASADSQ||0,
             date: data.TRANSFER_DATE,
             data: {
@@ -124,17 +154,36 @@ class AdoptedOrderService {
 
     searchEngine(orders: IAdoptedOrder[], options?: IAdoptedOptions): IAdoptedOrder[] {
         try {
-            const dateFirst = options?.d1;
-            const dateSecond = options?.d2;
-            if (!options?.filter) return orders;
-            const filter: string = options?.filter;
+
+            let dateFirst: Date|undefined = undefined;
+            let dateSecond: Date|undefined = undefined;
+
+            const d1 = options?.d1;
+            const d2 = options?.d2;
+            const filter: string = options?.filter||'';
+            if (d1 && d1 instanceof Date) dateFirst = new Date(d1.getFullYear(), d1.getMonth(), d1.getDate());
+            if (d2 && d2 instanceof Date) dateSecond = new Date(d2.getFullYear(), d2.getMonth(), d2.getDate());
+
             const { queryKeys, keys } = this.getArrayOfKeywords(filter);
-            if (!queryKeys.length) return [];
+
+            if(!queryKeys.length && !dateFirst && !dateSecond) {
+                return orders;
+            }
             const filteredArray = orders.filter(o => {
-                if (dateFirst && dateFirst instanceof Date) 
-                    if(!(o.date.getTime() >= dateFirst.getTime())) return false;
-                if (dateSecond && dateSecond instanceof Date)
-                    if(!(o.date.getTime() <= dateSecond.getTime())) return false;
+                const date = o.date && o.date instanceof Date ? new Date(o.date.getFullYear(), o.date.getMonth(), o.date.getDate()).valueOf() : undefined;
+                if (date && dateFirst)  if(!(date >= dateFirst.valueOf())) return false;
+                if (date && dateSecond) if(!(date <= dateSecond.valueOf())) return false;
+                for (const k of keys) {
+                    if (k.toUpperCase() === 'Упакован'.toUpperCase() && o.statusId !== 7) return false;
+                    if (k.toUpperCase() === 'Отгружен'.toUpperCase() && o.statusId !== 8) return false;
+                    if (k.toUpperCase() === 'На сборке'.toUpperCase() && o.statusId !== 1) return false;
+                    if (k.toUpperCase() === 'На шлифовке'.toUpperCase() && o.statusId !== 2) return false;
+                    if (k.toUpperCase() === 'Покраска этап №1'.toUpperCase() && o.statusId !== 3) return false;
+                    if (k.toUpperCase() === 'Патина этап №2'.toUpperCase() && o.statusId !== 4) return false;
+                    if (k.toUpperCase() === 'Лак этап №3'.toUpperCase() && o.statusId !== 5) return false;
+                    if (k.toUpperCase() === 'В упаковке'.toUpperCase() && o.statusId !== 6) return false;
+                }
+
                 const str = `${o.itmOrderNum}_${o.manager}_${o.transfer}_${o.accepted}_${o.client}
                     _${o.employeeTransfer||''}_${o.employeeAccepted||''}
                     _${o.status||''}_${o.statusOld||''}_${o.fasadSquare}_${format(o.date, 'DD.MM.YYYY')}
@@ -151,17 +200,19 @@ class AdoptedOrderService {
 
     getArrayOfKeywords(str: string): {queryKeys: string[], keys: string[]} {
         try {
+            if (!str || str == '') throw ApiError.BadRequest("Нет данных.")
             const keys:         string[] = [];
+            const set = new Set<string>();
             let filterStr:      string = str.replace(/\s+/g, ' ').trim().toUpperCase();
-            for (const keyword of this.keywords) {
-                if (filterStr.includes(keyword.key.toUpperCase())) {
-                    keys.push(keyword.value);
-                    const regX = new RegExp(`${keyword.key.toUpperCase()}`, 'g');
+            for (const k of this.keywords) {
+                const regX = new RegExp(`${k.key.toUpperCase()}`, 'g');
+                if (filterStr.match(regX)) {
+                    set.add(k.value);
                     filterStr = filterStr.replace(regX, '').replace(/ +/g, ' ');
                 }
             }
-            const  queryKeys =  filterStr.replace(/,/g," ").split(',');
-            return {queryKeys, keys};
+            const  queryKeys =  filterStr.replace(/,/g," ").split(' ');
+            return {queryKeys, keys: [...set]};
         } catch (e) {
             return {
                 queryKeys:[],

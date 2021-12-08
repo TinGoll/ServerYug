@@ -2,18 +2,13 @@ import { NextFunction, Request, Response } from "express";
 
 import { Router } from 'express';
 import db from '../dataBase';
-import { format } from 'date-format-parse';
-import atOrderQuery from '../query/atOrder';
-import jfunction, { convertJournalDataDbToDto } from '../systems/virtualJournalsFun';
+import jfunction from '../systems/virtualJournalsFun';
 import _ from 'lodash';
 
-import { JournalAdoptedDb, JournalCommentDto, JournalDataDb, JournalDataDto, JournalName, JournalSectorDto } from "../types/journalTypes";
-import { QueryOptions } from "../types/queryTypes";
+import { JournalCommentDto, JournalName, JournalSectorDto } from "../types/journalTypes";
 import User from "../entities/User";
-import { getAllUsers, getUserToToken } from "../systems/users";
+import { getUserToToken } from "../systems/users";
 import ApiError from "../exceptions/ApiError";
-import { createItmDb } from "../firebird/Firebird";
-import { IAdoptedOrder } from "../types/adopted-orders-types";
 import adoptedOrderService from "../services/adopted-order-service";
 
 // /api/journals/
@@ -128,6 +123,9 @@ router.get (
     '/adopted/:id',
     async (req: Request, res: Response, next: NextFunction) => {
         try {
+
+            //console.time('FirstWay');
+
             const limit: number| undefined      = req.query._limit as any;
             const page: number | undefined      = req.query._page as any;
          
@@ -154,6 +152,7 @@ router.get (
             const data = await adoptedOrderService.getAdoptedOrders(id, journal.j, {
                 limit, page, filter, d1: dateFirst, d2: dateSecond
             })
+            //console.timeEnd('FirstWay');
 
             return res.json({...data});
         } catch (e) {next(e);}

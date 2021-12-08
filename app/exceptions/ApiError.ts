@@ -17,7 +17,7 @@ export default class ApiError extends Error {
         return new ApiError(403, 'Нет прав доступа', errors);
     }
     static NotFound (errors: any [] = []) {
-        return new ApiError(404, 'запрашиваемый ресурс не найден', errors);
+        return new ApiError(404, 'Запрашиваемый ресурс не найден', errors);
     }
     
 }

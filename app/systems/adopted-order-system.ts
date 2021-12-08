@@ -29,18 +29,27 @@ export const setAdoptedQueryHash = (hashData: IAdoptedQuery): void => {
         if (index < 0) {
             adoptedQueryHashData.push(hashData);
         } else {
-            adoptedQueryHashData[index] = hashData;
+            clearAdoptedQueryHash(hashData.httpQueryId)
+            adoptedQueryHashData.push(hashData);
         }
+        console.log(adoptedQueryHashData.map(d => d.httpQueryId));
     } catch (e) {
         throw e;
     }
 }
 
-export const clearAdoptedQueryHash = (): void => {
+export const clearAdoptedQueryHash = (httpQueryId?:number): void => {
     try {
-        adoptedQueryHashData.splice(0, adoptedQueryHashData.length);
+        if (httpQueryId) {
+            const index = adoptedQueryHashData.findIndex(d => d.httpQueryId == httpQueryId);
+            if (index >= 0) {
+                adoptedQueryHashData.splice(index, 1);
+            }
+        }else {
+            adoptedQueryHashData.splice(0, adoptedQueryHashData.length);
+        } 
     } catch (e) {
-        throw e;
+        console.log(e);
     }
     
 } 
