@@ -2,6 +2,8 @@ import express, { Application, NextFunction, Request, Response } from 'express';
 import { errorMiddleware } from './app/middlewares/error-middleware';
 import config  from './config/index'
 import authRouter from './app/routes/auth-router';
+import timeRouter from './app/routes/time-router';
+import { OrderPlanSystem } from './app/systems/order-plans-system';
 
 const app: Application = express();
 
@@ -19,6 +21,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 app.use(express.static(__dirname + "/public"))
 
 app.use('/api', authRouter); // Авторизация и создание новых пользователей.
+app.use('/api', timeRouter); // Получение времени
 
 //config.routersAuth(app, '/api');
 
@@ -32,8 +35,14 @@ config.routesOrders(app);
 // Обработка ошибок.
 app.use(errorMiddleware);
 
-app.listen(config.port, () => {
+app.listen(config.port, async () => {
+    try {
+        console.log('Обновляем системы...');
+        const planSystem = new OrderPlanSystem();
+        await planSystem.refrash();
+        console.log('Обновление сисемы завершено.');
+    } catch (e) {
+        console.log('Ошибка обновления системы', e);
+    }
     console.log(`Сервер запущен на порту ${config.port}`);
 });
-
-

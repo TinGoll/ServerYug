@@ -2,14 +2,15 @@ import { NextFunction, Request, Response } from "express";
 
 import { Router } from 'express';
 import db from '../dataBase';
-import jfunction from '../systems/virtualJournalsFun';
+import jfunction, { getSectors } from '../systems/virtualJournalsFun';
 import _ from 'lodash';
 
-import { JournalCommentDto, JournalName, JournalSectorDto } from "../types/journalTypes";
+import { JournalCommentDto, JournalName, JournalOrderDto, JournalSectorDto } from "../types/journalTypes";
 import User from "../entities/User";
 import { getUserToToken } from "../systems/users";
 import ApiError from "../exceptions/ApiError";
 import adoptedOrderService from "../services/adopted-order-service";
+import { OrderPlanSystem } from "../systems/order-plans-system";
 
 // /api/journals/
 
@@ -23,6 +24,7 @@ interface ReportForExcelDb {
     DATE_PLAN: Date;
     LOCATION: string;
 } 
+
 // /api/journals/order-report - запрос для EXCEL, отчет по участкам по дате.
 router.get(
     '/order-report/:date',
@@ -32,7 +34,8 @@ router.get(
             if (!date) throw new Error('Некорректная дата');
 
             const query: string = `
-                  SELECT DISTINCT O.ID, O.ITM_ORDERNUM, GET_SECTOR_NAME(S.ID_NEW_SECTOR) AS SECTOR, P.DATE3 AS DATE_PLAN, GET_SECTOR_NAME(L.ID_SECTOR) AS LOCATION
+                  SELECT DISTINCT O.ID, O.ITM_ORDERNUM, COALESCE(GET_SECTOR_NAME(S.ID_NEW_SECTOR), P.DATE_DESCRIPTION) AS SECTOR, 
+                        P.DATE3 AS DATE_PLAN, GET_SECTOR_NAME(L.ID_SECTOR) AS LOCATION
                     FROM ORDERS O
                     LEFT JOIN ORDERS_DATE_PLAN P ON (P.ORDER_ID = O.ID)
                     LEFT JOIN SECTORS_OLD S ON (UPPER(S.NAME_OLD_SECTOR) = UPPER(P.DATE_DESCRIPTION))
@@ -47,6 +50,8 @@ router.get(
                 .filter(s => {
                     if (s.SECTOR?.toUpperCase() == 'Колеровка'.toUpperCase()) return false
                     if (s.SECTOR?.toUpperCase() == 'Шлифовка Станок'.toUpperCase()) return false
+                    if (s.SECTOR?.toUpperCase() == 'Склад упакованных заказов'.toUpperCase()) return false
+                    if (s.SECTOR?.toUpperCase() == 'Упаковка профиля'.toUpperCase()) return false
                     return true;
                 })
                 .map(s => {
@@ -124,7 +129,7 @@ router.get (
     async (req: Request, res: Response, next: NextFunction) => {
         try {
 
-            //console.time('FirstWay');
+           // console.time('FirstWay');
 
             const limit: number| undefined      = req.query._limit as any;
             const page: number | undefined      = req.query._page as any;
@@ -145,14 +150,17 @@ router.get (
 
             // Проверка прав
             const journals      = await jfunction.permissionSet(user);
+
             const journal       = journals.find(j => j.id == id);
 
             if(!journal) throw ApiError.Forbidden(['У тебя нет прав на получение данных этого журнала. Обратись а администатору.']);
+
+            const jnamesId = journal.j;
             
-            const data = await adoptedOrderService.getAdoptedOrders(id, journal.j, {
+            const data = await adoptedOrderService.getAdoptedOrders(id, jnamesId, {
                 limit, page, filter, d1: dateFirst, d2: dateSecond
             })
-            //console.timeEnd('FirstWay');
+           // console.timeEnd('FirstWay');
 
             return res.json({...data});
         } catch (e) {next(e);}
@@ -164,53 +172,113 @@ router.get(
     async (req: Request, res: Response, next: NextFunction) => {
         const defaultError = 'Ошибка получения журнала.';
         try {
-            const id: number | undefined =  req.params.id as any;
+            const id: number | undefined        =  req.params.id as any;
+
+            const limit: number| undefined      = req.query._limit as any;
+            const page: number | undefined      = req.query._page as any;
+         
+            const d1: string | undefined        = req.query._d1 as any; 
+            const d2: string | undefined        = req.query._d2 as any;
+
+            const filter: string | undefined      = req.query._filter as any;
+            const dateFirst: Date | undefined     = d1 ? convertToDate(d1, "dd/mm/yyyy") : undefined;
+            const dateSecond: Date | undefined    = d2 ? convertToDate(d2, "dd/mm/yyyy") : undefined;
+
             // Проверка токена, получение пользователя.
             const user: User = await getUserToToken(req.get('Authorization'));
             // Конец проверки токена.
             const journals: JournalName[] = await jfunction.permissionSet(user);
             const allowed = journals.find(j => j.id == id);
             if(!allowed) throw ApiError.Forbidden(['У тебя нет прав на получение данного журнала. Обратись а администатору.']);
-            // Проверка прав завершена
+            // Проверка прав завершена.
             let journal: JournalSectorDto[] = [];
             if (!id) throw ApiError.BadRequest(defaultError, ['Некорректный идентификатор журнала.']);
 
-            switch (parseInt(id as any)) {
-                case 1:
-                    journal = await jfunction.getJournalToId(id);
-                    break;
-                case 2:
-                    journal = await jfunction.getJournalToId(id);
-                    break;
-                case 3:
-                    journal = await jfunction.getJournalToId(id);
-                    break;
-                case 4:
-                    journal = await jfunction.getJournalToId(id);
-                    break;
-                case 6:
-                    // Все сектора.
-                    const allSectors = await jfunction.getSectors();
-                    const allSectorsId = allSectors.filter(s => s.id != 23).map(s => s.id);
-                    console.time('Получение журнала');
-                    journal = await jfunction.getJournalToId(id, allSectorsId);
-                    console.timeEnd('Получение журнала');
-                    // Сортировка по сотрудникам
-                    console.time('Сортировка');
-                    for (const s of journal) {
-                        s.overdue   = s.overdue.sort((a, b) => {return a.nameSectorInOrder.localeCompare(b.nameSectorInOrder);});
-                        s.forToday  = s.forToday.sort((a, b) => {return a.nameSectorInOrder.localeCompare(b.nameSectorInOrder);});
-                        s.forFuture = s.forFuture.sort((a, b) => {return a.nameSectorInOrder.localeCompare(b.nameSectorInOrder);});
+            const orderPlanSystem = new OrderPlanSystem();
+            const orders = await orderPlanSystem.getData({
+                id: Number(id) === 6?undefined:id, // Если общий журнал, не указываем id
+                limit,
+                page,
+                d1: dateFirst,
+                d2: dateSecond,
+                filter
+            });
+
+            const sectors = await getSectors();
+            const sectorsId = [...new Set(orders.map(o => o.sectorId))];
+
+            for (const sectorId of sectorsId) {
+                if (!sectorId) continue;
+                const s = sectors.find(s => s.id === sectorId);
+                const sectorOrders = orders.filter(o => o.sectorId === sectorId);
+
+                const sector: JournalSectorDto = {
+                    id: sectorId!,
+                    name: s?.name!,
+                    overdue: [],
+                    forToday: [],
+                    forFuture: []
+                }
+
+                const now = new Date();
+                const toDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())?.valueOf();
+
+                sector.overdue      = sectorOrders.filter(o => o.datePlan?.valueOf()! < toDay).map(o => {
+                    const order: JournalOrderDto = {
+                        id:                 o.id,
+                        itmOrderNum:        o.itmOrderNum,
+                        sectorId:           o.sectorId!,
+                        sectorName:         o.sectorName!,
+                        nameSectorInOrder:  o.workerName!,
+                        datePlan:           o.datePlan!,
+                        fasadSquare:        o.fasadSquare,
+                        generalSquare:      o.generalSquare,
+                        workingTime:        o.workingTime,
+                        data: {
+                            comments: o.data?.comments
+                        }
                     }
-                    console.timeEnd('Сортировка');
-                    // Конец сортировки
-                    break;
-                default:
-                    break;
+                    return order;
+                }); // Просроченые
+
+                sector.forToday     = sectorOrders.filter(o => o.datePlan?.valueOf()! == toDay).map(o => {
+                    const order: JournalOrderDto = {
+                        id:                 o.id,
+                        itmOrderNum:        o.itmOrderNum,
+                        sectorId:           o.sectorId!,
+                        sectorName:         o.sectorName!,
+                        nameSectorInOrder:  o.workerName!,
+                        datePlan:           o.datePlan!,
+                        fasadSquare:        o.fasadSquare,
+                        generalSquare:      o.generalSquare,
+                        workingTime:        o.workingTime,
+                        data: {
+                            comments: o.data?.comments
+                        }
+                    }
+                    return order;
+                }); // На сегодня
+                sector.forFuture    = sectorOrders.filter(o => o.datePlan?.valueOf()! > toDay).map(o => {
+                    const order: JournalOrderDto = {
+                        id:                 o.id,
+                        itmOrderNum:        o.itmOrderNum,
+                        sectorId:           o.sectorId!,
+                        sectorName:         o.sectorName!,
+                        nameSectorInOrder:  o.workerName!,
+                        datePlan:           o.datePlan!,
+                        fasadSquare:        o.fasadSquare,
+                        generalSquare:      o.generalSquare,
+                        workingTime:        o.workingTime,
+                        data: {
+                            comments: o.data?.comments
+                        }
+                    }
+                    return order;
+                }); // Будущие
+                journal.push(sector);
             }
+
             if (!journal.length) throw ApiError.BadRequest(defaultError, ['Такой журнал не существует.']);
-
-
             return res.json({journal});
 
         } catch (e) {next(e);}

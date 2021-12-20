@@ -34,7 +34,7 @@ class ExtraDataController {
                     throw ApiError.BadRequest('Для получения параметров, необходимо указать передающий и принимающий участок.');
 
             const extraData = await extraDataService.getParametersExtraPack(barcodeTransfer, barcodeAccepted);
-
+        
             res.status(200).json(extraData);
         } catch (e) {next(e);}
     }

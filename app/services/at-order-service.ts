@@ -10,6 +10,8 @@ import { format } from 'date-format-parse';
 import atOrderQuery from '../query/atOrder';
 import { IExtraData } from "../types/extraDataTypes";
 import { clearAdoptedQueryHash } from "../systems/adopted-order-system";
+import { OldJournalEntry } from "../systems/old-journal-entry-system";
+import { OrderPlanSystem } from "../systems/order-plans-system";
 
 class AtOrderService {
     /**
@@ -39,7 +41,6 @@ class AtOrderService {
                     FROM SECTORS_BARCODE B WHERE UPPER(B.BARCODE) = UPPER(?) OR (UPPER(B.BARCODE) = UPPER(?))
                 `, [transferOrders.idTransfer, transferOrders.idAccepted]);
 
-
                 const barcodes: IBarcode[] = barcodesDb.map(b => dtoConverter.convertBarcodeDbToDto(b))
 
                 const transfer = barcodes.find(b => b.barcode.toUpperCase() === transferOrders.idTransfer.toUpperCase());
@@ -51,7 +52,6 @@ class AtOrderService {
                 // Получаем старое название участка, по id нового участка.
                 const namesTransferOldSector  = await jfunction.getNameOldSectorArrToIdNewSector(transfer!.idSector); 
                 const namesAcceptedOldSector  = await jfunction.getNameOldSectorArrToIdNewSector(accepted!.idSector); 
-
 
                 // Деревянно, переделать
                 if (transfer?.idSector == 5 && accepted?.idSector == 24) transfer.idSector = 23;
@@ -225,6 +225,12 @@ class AtOrderService {
                 if (ordersExtraData && ordersExtraData?.length) {
                     const countExtraData = await setExtraData(ordersExtraData);
                 } 
+                /** Добавление заказа в старый журнал, выполняеться асинхронно без ожидания результата */
+                const oldJournalEntry = new OldJournalEntry();
+                oldJournalEntry.push(transferOrders, ordersAt, ordersExtraData, dependencies);
+                /** Обновление системы планов, выполняеться асинхронно без ожидания результата. */
+                const orderPlanSystem = new OrderPlanSystem();
+                orderPlanSystem.refrash();
 
                 const countOrders = transferOrders.orders?.filter(o => o.completed).length;
                 let message = `${countOrders ? '☑️ Принято ' + countOrders + ' из ' + transferOrders.orders.length : '❌ Не один из заказов не принят.'}`;

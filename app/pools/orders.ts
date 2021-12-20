@@ -13,6 +13,7 @@ import User from '../entities/User';
 import { getUserToToken } from '../systems/users';
 import { createItmDb } from '../firebird/Firebird';
 import ApiError from '../exceptions/ApiError';
+import { OrderPlanSystem } from '../systems/order-plans-system';
 
 
 // Получение всех заказов, лимит по умолчанию - 100
@@ -408,23 +409,11 @@ const getDataHeaderForCreateOrder = async (req: Request, res: Response, next: Ne
 
 const getTest = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const startTimeOldDB = new Date().getTime();
-      
-        const db = await createItmDb();
-        try {
-            const [order, ...other] = await db.executeRequest<IOrderHeaderDb>(`SELECT * FROM ORDERS O WHERE O.MANAGER = ?`, ['Оля']);
-            console.log(other.length);
-            
-            console.log(order.ITM_ORDERNUM);
-        } catch (error) {
-            throw error;
-        }finally {
-            db.detach();
-        }
-        // Тест 1 Старый метод
-       const endTimeOldDB =  new Date().getTime();
-       
-        res.status(200).json({old: ((endTimeOldDB - startTimeOldDB) / 1000)})
+        
+        const oderSystem = new OrderPlanSystem();
+        const orders = await oderSystem.getData({id: undefined});
+    
+        res.status(200).json(orders);
     } catch (e) {next(e);}
 }
 

@@ -1,3 +1,5 @@
+import { ITimeRequest } from "./time-types";
+
 export declare interface IExtraData {
     orderId: number
     journalId: number;

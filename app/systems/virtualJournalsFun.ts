@@ -14,7 +14,9 @@ const journals: JournalName[] = [
     {id: 3, name: 'Журнал лакировки', j: [3]},
     {id: 4, name: 'Журнал упаковки', j: [4]},
     {id: 5, name: 'Журнал бухгалтера', j: [1, 2, 3, 4]},
-    {id: 6, name: 'Общий журнал', j: [6]}
+    {id: 6, name: 'Общий журнал', j: [1, 2, 3, 4]},
+    {id: 7, name: 'Жунал нижнего цеха', j: [7]},
+    
 ]
 
 const permissions: JournalPermission[] = [
@@ -24,7 +26,8 @@ const permissions: JournalPermission[] = [
     {name: 'Journals [get-journals] get lak', data: [journals[2]]},         // Журнал лакировки
     {name: 'Journals [get-journals] get upak', data: [journals[3]]},        // Журнал упаковки
     {name: 'Journals [get-journals] get buhgalter', data: [journals[4]]},   // Журнал Бухгалтера
-    {name: 'Journals [get-journals] get general', data: [journals[5]]}      // Журнал Общий
+    {name: 'Journals [get-journals] get general', data: [journals[5]]},     // Журнал Общий
+    {name: 'Journals [get-journals] get lower factory', data: [journals[6]]}// Жунал нижнего цеха
 ];
 
 const sectorsDefault: number[] = [5, 23, 24] //Упаковка, склад отгруженных, отгрузка
@@ -119,7 +122,7 @@ const initSectors = async (): Promise<JournalSectorList[]> => {
     }
 }
 
-const getStatuses = async (): Promise<JournalStatusListOldDb[]> => {
+export const getStatuses = async (): Promise<JournalStatusListOldDb[]> => {
     if (statusList.length) return statusList;
     return (await initStatuses ());
 }

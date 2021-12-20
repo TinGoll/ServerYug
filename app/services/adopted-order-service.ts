@@ -9,15 +9,14 @@ import { format } from 'date-format-parse';
 import { IExtraDataDb } from "../types/extraDataTypes";
 import dtoConverter from "../systems/dtoConverter";
 import { adoptedQueryHashData, clearAdoptedQueryHash, getAdoptedQueryHash, IAdoptedQuery, setAdoptedQueryHash } from "../systems/adopted-order-system";
+import { IKeyword } from "../types/system-types";
+import { orderKeywords } from "../systems/search-keywords";
 
 
-interface IKeyword {
-    key: string, value: string
-}
 
 class AdoptedOrderService {
-    defaultLimit: number    = 20;  // Лимит по умолчанию.
-    updateTime: number      = 10;    // Минуты
+    defaultLimit: number    = 50;  // Лимит по умолчанию.
+    updateTime: number      = 20;    // Минуты
 
     /**
      *  1	На сборке
@@ -31,27 +30,8 @@ class AdoptedOrderService {
 
      */
 
-    keywords: IKeyword [] = [
-                {key: 'Упакованные',        value: 'Упакован'},
-                {key: 'Упакован',           value: 'Упакован'},
-                {key: 'Запакован',          value: 'Упакован'},
-                {key: 'Запакован',          value: 'Упакован'},
+    private keywords: IKeyword [] = orderKeywords;
 
-                {key: 'Готов',              value: 'Отгружен'},
-                {key: 'Отправлен',          value: 'Отгружен'},
-                {key: 'Отгружен',           value: 'Отгружен'},
-                {key: 'Отгруженные',        value: 'Отгружен'},
-
-                {key: 'На сборке',          value: 'На сборке'},
-                {key: 'На шлифовке',        value: 'На шлифовке'},
-                {key: 'Покраска',           value: 'Покраска этап №1'},
-                {key: 'Патина',             value: 'Патина этап №2'},
-                {key: 'Лак',                value: 'Лак этап №3'},
-                {key: 'В упаковке',         value: 'В упаковке'},
-
-
-
-            ];
     async getAdoptedOrders(httpQueryId:number, journalNamesId: number[], options?: IAdoptedOptions): Promise<IAdopted> {
         try {
             const db = await createItmDb();
@@ -99,7 +79,7 @@ class AdoptedOrderService {
                 }
                 if (!newHashData?.noFiltredorders.length) {
                     clearAdoptedQueryHash(httpQueryId);
-                    throw ApiError.NotFound();
+                    return {orders:[], count: 0, pages: 0};
                 }    
 
                 const limit         = options?.limit||this.defaultLimit;
