@@ -224,12 +224,15 @@ router.get(
                 const toDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())?.valueOf();
 
                 sector.overdue      = sectorOrders.filter(o => o.datePlan?.valueOf()! < toDay).map(o => {
+                    
+                    //if (o.workingTime) console.log(o);
+                    
                     const order: JournalOrderDto = {
                         id:                 o.id,
                         itmOrderNum:        o.itmOrderNum,
                         sectorId:           o.sectorId!,
                         sectorName:         o.sectorName!,
-                        nameSectorInOrder:  o.workerName!,
+                        nameSectorInOrder:  o.accepdedEmployee||o.workerName!,
                         datePlan:           o.datePlan!,
                         fasadSquare:        o.fasadSquare,
                         generalSquare:      o.generalSquare,
@@ -247,7 +250,7 @@ router.get(
                         itmOrderNum:        o.itmOrderNum,
                         sectorId:           o.sectorId!,
                         sectorName:         o.sectorName!,
-                        nameSectorInOrder:  o.workerName!,
+                        nameSectorInOrder:  o.accepdedEmployee||o.workerName!,
                         datePlan:           o.datePlan!,
                         fasadSquare:        o.fasadSquare,
                         generalSquare:      o.generalSquare,
@@ -264,7 +267,7 @@ router.get(
                         itmOrderNum:        o.itmOrderNum,
                         sectorId:           o.sectorId!,
                         sectorName:         o.sectorName!,
-                        nameSectorInOrder:  o.workerName!,
+                        nameSectorInOrder:  o.accepdedEmployee||o.workerName!,
                         datePlan:           o.datePlan!,
                         fasadSquare:        o.fasadSquare,
                         generalSquare:      o.generalSquare,

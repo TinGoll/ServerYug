@@ -23,8 +23,6 @@ export declare interface IPlanOrderDb {
 
     DATE_PLAN: Date|null;
     TRANSFER_DATE: Date|null;
-    ACCEPTED_DATE: Date|null;
-    
 
     PLAN_SECTOR_ID: number|null;
     PLAN_SECTOR: string|null;
@@ -34,6 +32,9 @@ export declare interface IPlanOrderDb {
     TRANSFER_ID: number|null;
     ACCEPTED_ID: number|null;
     LOCATION_ID: number|null; 
+
+    EMPLOYEE_ACCEPTED_ID: number|null;
+    EMPLOYEE_TRANSFER_ID: number|null;
 }
 
 export declare interface IPlanOrder {
@@ -65,8 +66,6 @@ export declare interface IPlanOrder {
     journalNameId: number|null;
     /** Дата приема / передачи, может быть null */
     transferDate: Date|null;
-    /** Дата послупления заказа в участок, может быть null */
-    accepdedDate: Date|null;
     /** Плановая дата в заказе, может быть null*/
     datePlan: Date|null;
     /**  id участка */
@@ -82,7 +81,15 @@ export declare interface IPlanOrder {
     /** id участка принявшего заказ, может быть null */
     accepdedSectorId: number| null;
     /** id участка в котором на данный момент находиться заказ, может быть null */
-    locationSectorId: number| null;
+    locationSectorId: number| null; 
+    /** ID сотрудника, передающего участка */
+    transferEmployeeId: number|null;
+    /** ID сотрудника, принимающего участка */
+    accepdedEmployeeId: number|null;
+    /** Имя сотрудника, принимающего участка */
+    accepdedEmployee: string|null;
+    /** Имя сотрудника, передающего участка */
+    transferEmployee: string|null;
     /** название участка передавшего заказ, может быть null */
     transferSector: string| null;
     /** название участка принявшего заказ, может быть null */

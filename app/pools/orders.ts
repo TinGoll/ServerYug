@@ -13,7 +13,6 @@ import User from '../entities/User';
 import { getUserToToken } from '../systems/users';
 import { createItmDb } from '../firebird/Firebird';
 import ApiError from '../exceptions/ApiError';
-import { OrderPlanSystem } from '../systems/order-plans-system';
 
 
 // Получение всех заказов, лимит по умолчанию - 100
@@ -298,6 +297,7 @@ const getOneOrder = async  (req: Request, res: Response, next: NextFunction) => 
         // Конец проверки токена.
 
         let id: number =  req.params.id as any
+        if (!id) throw ApiError.BadRequest("Не корректный id заказа")
         let options: QueryOptions = {};
         options.$where = `O.ID = ${id}`;
         let query = ordersQuery.get('get_order_header', options);
@@ -409,11 +409,7 @@ const getDataHeaderForCreateOrder = async (req: Request, res: Response, next: Ne
 
 const getTest = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        
-        const oderSystem = new OrderPlanSystem();
-        const orders = await oderSystem.getData({id: undefined});
-    
-        res.status(200).json(orders);
+        res.status(200).json({okay: true});
     } catch (e) {next(e);}
 }
 

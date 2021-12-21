@@ -2,6 +2,7 @@ import db from '../dataBase';
 import _ from 'lodash';
 import User from '../entities/User';
 import { JournalDataDb, JournalDataDto, JournalName, JournalOrderDto, JournalPermission, JournalPlans, JournalPlansDb, JournalSectorDto, JournalSectorList, JournalStatusListOldDb } from '../types/journalTypes';
+import { createItmDb } from '../firebird/Firebird';
 
 const statusList: JournalStatusListOldDb[] = [];  // Статусы
 const sectorsList: JournalSectorList[] = []; // Сектора
@@ -69,6 +70,35 @@ const getNameOldSectorArrToIdNewSector = async (idNew: number): Promise<string[]
         return sectors.map(s=>s.NAME_OLD_SECTOR);
     } catch (error) {throw error}
 }
+
+export interface IAssociationNewAndOldSectors {
+    newId: number;
+    oldName: string;
+}
+export interface IAssociationNewAndOldSectorsDb {
+    ID_NEW_SECTOR: number;
+    NAME_OLD_SECTOR: string;
+}
+
+const getOldAndNewSectors = async (): Promise<IAssociationNewAndOldSectors[]> => {
+    try {
+        const db = await createItmDb();
+        try {
+            const resDb = await db.executeRequest<IAssociationNewAndOldSectorsDb>('SELECT O.ID_NEW_SECTOR, O.NAME_OLD_SECTOR FROM SECTORS_OLD O');
+            const res = resDb.map(r => {
+                return  {newId: r.ID_NEW_SECTOR, oldName: r.NAME_OLD_SECTOR};
+            })
+            return res;
+        } catch (e) {
+            throw e;
+        } finally {
+            db.detach();
+        }
+    } catch (e) {
+        throw e;
+    }
+}
+
 const getPlansToOrderId = async (orderId: number): Promise<JournalPlansDb[]> => {
     try {
         const query = `select P.ORDER_ID, P.DATE_SECTOR, P.DATE_DESCRIPTION, P.COMMENT, P.DATE1, P.DATE2, P.DATE3
@@ -301,6 +331,7 @@ export default {
     getIdSectorArrToNameOldSector,
     getNameOldSectorArrToIdNewSector,
     getStatusNumOldToIdStatusOld,
+    getOldAndNewSectors,
     getPlansToOrderId,
     isWorkPlan,
     permissionSet,

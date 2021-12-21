@@ -1,7 +1,7 @@
 import { createItmDb } from "../firebird/Firebird";
-import { BarcodesDb, IAtOrdersDb, IBarcode, IDependencies, IDependenciesDb, ILocationOrderDb, IStatusAndLocation, IStatusAndLocationDb, ITransferOrderElement, ITransferOrders, IWorkOrdersDb } from "../types/at-order-types";
+import { BarcodesDb, IAtOrdersDb, IBarcode, IDependencies, IDependenciesDb, ILocationOrderDb, IStatusAndLocation, IStatusAndLocationDb, ITransferOrderElement, ITransferOrders, IWorkOrders, IWorkOrdersDb } from "../types/at-order-types";
 
-import jfunction from '../systems/virtualJournalsFun';
+import jfunction, { IAssociationNewAndOldSectors } from '../systems/virtualJournalsFun';
 import dtoConverter from "../systems/dtoConverter";
 import ApiError from "../exceptions/ApiError";
 import setExtraData from "../systems/extradata-system";
@@ -51,14 +51,15 @@ class AtOrderService {
 
                 // Получаем старое название участка, по id нового участка.
                 const namesTransferOldSector  = await jfunction.getNameOldSectorArrToIdNewSector(transfer!.idSector); 
-                const namesAcceptedOldSector  = await jfunction.getNameOldSectorArrToIdNewSector(accepted!.idSector); 
+                const namesAcceptedOldSector  = await jfunction.getNameOldSectorArrToIdNewSector(accepted!.idSector);
+                const associationNewAndOldSectors = await jfunction.getOldAndNewSectors();
 
                 // Деревянно, переделать
                 if (transfer?.idSector == 5 && accepted?.idSector == 24) transfer.idSector = 23;
 
 
 
-                const [dependencies, rdependencies] = await this.dependenciesValidator(transfer?.idSector, accepted?.idSector)
+                const [dependencies, rdependencies, allDependencies] = await this.dependenciesValidator(transfer?.idSector, accepted?.idSector);
 
                 // Если в зависимости передающий этап являеться стартовым.
                 const isStartingStage = (dependencies.find(d => d.startStage))?.startStage || false;
@@ -88,7 +89,7 @@ class AtOrderService {
                 `);
 
                 const orderLocationsDb = await db.executeRequest<ILocationOrderDb>(
-                    `SELECT * FROM LOCATION_ORDER L WHERE L.ID_ORDER IN (${ordersToString}) AND L.ID_SECTOR = ${transfer?.idSector}`, []
+                    `SELECT * FROM LOCATION_ORDER L WHERE L.ID_ORDER IN (${ordersToString}) AND L.ID_SECTOR = ${transfer?.idSector||0}`, []
                 );
 
                 const ordersAt = ordersFromDb.map(o => dtoConverter.convertAtOrderDbToDto(o));
@@ -172,11 +173,18 @@ class AtOrderService {
                         continue;
                     }
                     order.modiferCount = location?.modifer || 1
+
                     if (!isStartingStage) {
                         if (!location?.modifer || location.modifer <= 0) {
-                            order.completed = false;
-                            order.description = `Заказ не был передан в участок ${transfer?.sector} и ${transfer?.sector} не являеться стартовым участком.`;
-                            continue;
+                            /** Изменена логика проверки на наличие заказа в участке.
+                             *  Если нет работ по передаче в текущий участок, то принимаем.
+                             */
+                            const isTherePlans = await this.sectorValidator(transfer?.idSector!, works, allDependencies, associationNewAndOldSectors)
+                            if (isTherePlans) {
+                                order.completed = false;
+                                order.description = `Заказ не был передан в участок ${transfer?.sector} и ${transfer?.sector} не являеться стартовым участком.`;
+                                continue;
+                            }
                         }
                     }
 
@@ -246,6 +254,27 @@ class AtOrderService {
 
     }
 
+    async sectorValidator (sectorId: number, works: IWorkOrders[], allDependencies: IDependencies[], 
+                            associationNewAndOldSectors: IAssociationNewAndOldSectors[]): Promise<boolean> {
+        try {
+            const db = await createItmDb();
+            try {
+                const acceptedSectors: number[] = allDependencies.filter(d => d.accepted === sectorId).map(d => d.transfer);
+                for (const s of acceptedSectors) {
+                    const oldNames = associationNewAndOldSectors.filter(o => o.newId === s);
+                     if (jfunction.isWorkPlan(oldNames.map(o => o.oldName), works)) return true;
+                }
+                return false;
+            } catch (e) {
+                throw e;
+            } finally {
+                db.detach();
+            }
+        } catch (e) {
+            throw e;
+        }
+    }
+
     /**
      * 
      * @param transferSectorId - Передающий участок (ID)
@@ -265,7 +294,9 @@ class AtOrderService {
                     `SELECT * FROM JOURNAL_DEP D WHERE D.ID_SECTOR_TRANSFER = ? AND D.ID_SECTOR_ACCEPTED = ?`, 
                     [acceptedSectorId||null, transferSectorId||null]);
                 const reverseDependencies: IDependencies[] = reverseDependenciesDb.map(d => dtoConverter.convertDependenciesDbToDto(d));
-                return [dependencies, reverseDependencies]
+                const allDependenciesDb = await db.executeRequest<IDependenciesDb>(`SELECT * FROM JOURNAL_DEP D`);
+                const allDependencies: IDependencies[] = allDependenciesDb.map(d => dtoConverter.convertDependenciesDbToDto(d));
+                return [dependencies, reverseDependencies, allDependencies]
             } catch (e) {
                 throw e;
             } finally {

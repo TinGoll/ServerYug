@@ -1,3 +1,4 @@
+import { format } from "date-format-parse";
 import User from "../entities/User";
 import ApiError from "../exceptions/ApiError";
 import { createItmDb, Firebird } from "../firebird/Firebird";
@@ -51,9 +52,17 @@ export class OrderPlanSystem implements ISystem<IPlanOrder> {
                 }
 
                 /** если запись есть в журнале, значит заказ уже передан следующему участку */
-                if(order.journalId) check = false; 
+                if(order.journalId && !order.locationSectorId) check = false; 
                 /** если текущая локация совпадает с сектором, то показываем рабочее время в этом участке или обновляем */
-                if (order.locationSectorId && order.sectorId === order.locationSectorId) order.workingTime = this.getWorkTime(order.accepdedDate||null);
+                if (order.locationSectorId && order.sectorId === order.locationSectorId) {
+                    //console.log(order.accepdedDate);
+                    
+                    if (order.transferDate) {
+                        order.workingTime = this.getWorkTime(order.transferDate);
+                    }
+                   
+                    
+                } else order.workingTime = 0;
                 return check;
             })
 
@@ -166,6 +175,7 @@ export class OrderPlanSystem implements ISystem<IPlanOrder> {
 
                 this.dependenses    = dependensesDb.map(d => dtoConverter.convertDependenciesDbToDto(d));
                 this.orders         = this.convertDbToDto(ordersDb, extraData, sectors, users, statuses);
+
                 this.orders         = this.orders.sort((a, b) => {
                         const orderA = (sectors.find(s => s?.id == a.sectorId))?.orderBy || 0;
                         const orderB = (sectors.find(s => s?.id == b.sectorId))?.orderBy || 0;
@@ -220,39 +230,45 @@ export class OrderPlanSystem implements ISystem<IPlanOrder> {
                 const transfer = sectors.find(s => s.id === d.TRANSFER_ID);
                 const accepted = sectors.find(s => s.id === d.ACCEPTED_ID); 
                 const location = sectors.find(s => s.id === d.LOCATION_ID);
+                    
+                const accepdedEmployee = users.find(u => u.id === d.EMPLOYEE_ACCEPTED_ID);
+                const transferEmployee = users.find(u => u.id === d.EMPLOYEE_TRANSFER_ID);
                 const comments = extraData.filter(e => e.ID_ORDER === d.ID && e.DATA_NAME.toUpperCase() === 'Комментарий'.toUpperCase())
                     .map(e => dtoConverter.JournalDataDbToDto(e));
 
                 const order: IPlanOrder = {
                     id: d.ID,
                     itmOrderNum: d.ITM_ORDERNUM,
-                    fasadSquare: d.ORDER_FASADSQ||0,
-                    generalSquare: d.ORDER_GENERALSQ||0,
+                    fasadSquare: d.ORDER_FASADSQ || 0,
+                    generalSquare: d.ORDER_GENERALSQ || 0,
                     statusOldNum: d.OLD_STATUS_NUM,
                     statusOldName: d.OLD_STATUS,
                     statusId: d.ID_STATUS,
-                    status: status?.name||null,
+                    status: status?.name || null,
                     client: d.CLIENT,
                     isProfiler: !!d.PROFILER,
                     isPrepaid: !!d.IS_PREPAID,
                     journalId: d.ID_JOURNAL,
                     journalNameId: d.ID_JOURNAL_NAMES,
                     transferDate: d.TRANSFER_DATE,
-                    accepdedDate: d.ACCEPTED_DATE,
                     datePlan: d.DATE_PLAN,
                     sectorId: d.PLAN_SECTOR_ID,
                     sectorName: d.PLAN_SECTOR,
                     workerName: d.WORKER,
-                    workingTime:  this.getWorkTime(d.TRANSFER_DATE),
+                    workingTime: 0,
                     transferSectorId: d.TRANSFER_ID,
                     accepdedSectorId: d.ACCEPTED_ID,
                     locationSectorId: d.LOCATION_ID,
-                    transferSector: transfer?.name||null,
-                    accepdedSector: accepted?.name||null,
-                    locationSector: location?.name||null,
+                    transferEmployeeId: d.EMPLOYEE_TRANSFER_ID,
+                    accepdedEmployeeId: d.EMPLOYEE_ACCEPTED_ID,
+                    transferEmployee: transferEmployee?.userName || null,
+                    accepdedEmployee: accepdedEmployee?.userName || null,
+                    transferSector: transfer?.name || null,
+                    accepdedSector: accepted?.name || null,
+                    locationSector: location?.name || null,
                     data: {
                         comments
-                    }
+                    },
                 }
                 return order;
             });
@@ -319,28 +335,30 @@ export class OrderPlanSystem implements ISystem<IPlanOrder> {
     private getOrderQuery() : string {
         return `
             SELECT O.ID, O.ITM_ORDERNUM, O.ORDER_GENERALSQ, O.ORDER_FASADSQ, 
-                    O.ORDER_STATUS AS OLD_STATUS_NUM, O.CLIENT, O.PROFILER, O.IS_PREPAID,
-                    J.ID AS ID_JOURNAL, J.ID_JOURNAL_NAMES, J.TRANSFER_DATE, L.ACCEPTED_DATE,
-                    GET_STATUS_NAME_TO_NUM(O.ORDER_STATUS) AS OLD_STATUS,
-                    GET_JSTATUS_ID(O.ID) AS ID_STATUS,
-                    GET_SECTOR_ID_TO_OLD_SECTOR(P.DATE_DESCRIPTION) AS PLAN_SECTOR_ID,
-                    GET_SECTOR_NAME_TO_OLD_SECTOR(P.DATE_DESCRIPTION) AS PLAN_SECTOR,
-                    P.DATE_SECTOR AS WORKER, P.DATE3 AS DATE_PLAN,
+                O.ORDER_STATUS AS OLD_STATUS_NUM, O.CLIENT, O.PROFILER, O.IS_PREPAID,
+                J.ID AS ID_JOURNAL, J.ID_JOURNAL_NAMES, J.TRANSFER_DATE,
+                GET_STATUS_NAME_TO_NUM(O.ORDER_STATUS) AS OLD_STATUS,
+                GET_JSTATUS_ID(O.ID) AS ID_STATUS,
+                GET_SECTOR_ID_TO_OLD_SECTOR(P.DATE_DESCRIPTION) AS PLAN_SECTOR_ID,
+                GET_SECTOR_NAME_TO_OLD_SECTOR(P.DATE_DESCRIPTION) AS PLAN_SECTOR,
+                P.DATE_SECTOR AS WORKER, P.DATE3 AS DATE_PLAN,
 
-                    (SELECT FIRST 1 T.ID_SECTOR FROM JOURNAL_TRANS T WHERE T.ID_JOURNAL = J.ID AND T.MODIFER < 0) AS TRANSFER_ID,
-                    (SELECT FIRST 1 T.ID_SECTOR FROM JOURNAL_TRANS T WHERE T.ID_JOURNAL = J.ID AND T.MODIFER > 0) AS ACCEPTED_ID,
+                (SELECT FIRST 1 T.ID_SECTOR FROM JOURNAL_TRANS T WHERE T.ID_JOURNAL = J.ID AND T.MODIFER < 0) AS TRANSFER_ID,
+                (SELECT FIRST 1 T.ID_SECTOR FROM JOURNAL_TRANS T WHERE T.ID_JOURNAL = J.ID AND T.MODIFER > 0) AS ACCEPTED_ID,
 
-                    L.ID_SECTOR AS LOCATION_ID 
-                FROM ORDERS_IN_PROGRESS O
-                    LEFT JOIN ORDERS_DATE_PLAN P ON (P.ORDER_ID = O.ID)
-                    LEFT JOIN JOURNALS J ON (J.ID_ORDER = O.ID AND EXISTS(
-                        SELECT T2.ID FROM JOURNAL_TRANS T2  WHERE T2.ID_JOURNAL = J.ID AND 
-                        T2.ID_SECTOR = GET_SECTOR_ID_TO_OLD_SECTOR(P.DATE_DESCRIPTION) AND T2.MODIFER < 0
-                    ))
-                    LEFT JOIN LOCATION_ORDER L ON (L.ID_ORDER = O.ID AND L.ID_SECTOR = GET_SECTOR_ID_TO_OLD_SECTOR(P.DATE_DESCRIPTION))
-                    ORDER BY P.DATE3
-        `
-        //LEFT JOIN LOCATION_ORDER L ON (L.ID_ORDER = O.ID AND L.ID_SECTOR = GET_SECTOR_ID_TO_OLD_SECTOR(P.DATE_DESCRIPTION)) - локация привязана к учатску
+                (SELECT FIRST 1 T.ID_EMPLOYEE FROM JOURNAL_TRANS T WHERE T.ID_JOURNAL = J.ID AND T.MODIFER < 0) AS EMPLOYEE_TRANSFER_ID,
+                (SELECT FIRST 1 T.ID_EMPLOYEE FROM JOURNAL_TRANS T WHERE T.ID_JOURNAL = J.ID AND T.MODIFER > 0) AS EMPLOYEE_ACCEPTED_ID,
+
+                L.ID_SECTOR AS LOCATION_ID 
+            FROM ORDERS_IN_PROGRESS O
+                LEFT JOIN ORDERS_DATE_PLAN P ON (P.ORDER_ID = O.ID)
+                LEFT JOIN JOURNALS J ON (J.ID_ORDER = O.ID AND EXISTS(
+                    SELECT T2.ID FROM JOURNAL_TRANS T2  WHERE T2.ID_JOURNAL = J.ID AND 
+                    T2.ID_SECTOR = GET_SECTOR_ID_TO_OLD_SECTOR(P.DATE_DESCRIPTION)
+                ))
+                LEFT JOIN LOCATION_ORDER L ON (L.ID_ORDER = O.ID AND L.ID_SECTOR = GET_SECTOR_ID_TO_OLD_SECTOR(P.DATE_DESCRIPTION))
+                ORDER BY P.DATE3`;
+        //LEFT JOIN LOCATION_ORDER L ON (L.ID_ORDER = O.ID AND L.ID_SECTOR = GET_SECTOR_ID_TO_OLD_SECTOR(P.DATE_DESCRIPTION)) - локация привязана к участку
     }
     
 }
