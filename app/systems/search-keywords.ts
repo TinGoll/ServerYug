@@ -18,4 +18,14 @@ export const orderKeywords: IKeyword [] = [
                 {key: 'Лак',                value: 'Лак этап №3'},
                 {key: 'В упаковке',         value: 'В упаковке'},
 
+                {key: 'Переданные',         value: 'Переданные'},
+                {key: 'Принятые',           value: 'Переданные'},
+
+                {key: 'СЕГОДНЯ',            value: 'forToday'},
+                {key: 'сегодняшние',            value: 'forToday'},
+                {key: 'сегодня',            value: 'forToday'},
+
+                {key: 'БУДУЩИЕ',            value: 'forFuture'},
+                {key: 'ПРОСРОЧЕННЫЕ',       value: 'overdue'},
+                
             ];

@@ -3,6 +3,7 @@ import { errorMiddleware } from './app/middlewares/error-middleware';
 import config  from './config/index'
 import authRouter from './app/routes/auth-router';
 import timeRouter from './app/routes/time-router';
+import serviceRouter from './app/routes/service-router';
 import { OrderPlanSystem } from './app/systems/order-plans-system';
 
 const app: Application = express();
@@ -22,6 +23,7 @@ app.use(express.static(__dirname + "/public"))
 
 app.use('/api', authRouter); // Авторизация и создание новых пользователей.
 app.use('/api', timeRouter); // Получение времени
+app.use('/api', serviceRouter) // Сервисный роутер, для перезагрузки или отчистки кеша
 
 //config.routersAuth(app, '/api');
 

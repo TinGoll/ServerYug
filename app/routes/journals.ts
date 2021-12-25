@@ -5,12 +5,13 @@ import db from '../dataBase';
 import jfunction, { getSectors } from '../systems/virtualJournalsFun';
 import _ from 'lodash';
 
-import { JournalCommentDto, JournalName, JournalOrderDto, JournalSectorDto } from "../types/journalTypes";
+import { JournalCommentDto, JournalName, JournalOrderDto, JournalSectorDto, JournalSectorList } from "../types/journalTypes";
 import User from "../entities/User";
 import { getUserToToken } from "../systems/users";
 import ApiError from "../exceptions/ApiError";
 import adoptedOrderService from "../services/adopted-order-service";
 import { OrderPlanSystem } from "../systems/order-plans-system";
+import { IPlanOrder } from "../types/plans-order-types";
 
 // /api/journals/
 
@@ -167,6 +168,97 @@ router.get (
     }
 );
 
+
+router.get('/get-sectors', async (req:Request, res: Response, next: NextFunction) => {
+    try {
+        // Проверка токена, получение пользователя.
+        const user: User = await getUserToToken(req.get('Authorization'));
+        // Конец проверки токена.
+        const id        = req.query._id as string|undefined;
+        const sectors   = await getSectors();
+        const filtredSectorId: number[] = [];
+        if (id) {
+            const system  = new OrderPlanSystem();
+            const dependenses = await system.getDependenses();
+            for (const d of dependenses) {
+                if (d.journalNameId === Number(id)) filtredSectorId.push(d.transfer)
+            }
+        }
+        res.status(200).json([...sectors
+            .filter(s => {
+                let chek = true;
+                if (filtredSectorId.length) {
+                    chek = false;
+                    for (const f of filtredSectorId) {
+                        if (f == s.id) {
+                            chek = true;
+                            break;
+                        }
+                    }
+                }
+                return chek && s.id != 13 && s.id != 14
+            })
+            .map(s => {return {id: s.id, name: s.name}})]);
+    } catch (e) {
+        next(e);
+    }
+});
+
+router.get('/plan-orders', async (req:Request, res: Response, next: NextFunction) => {
+    try {
+        // Проверка токена, получение пользователя.
+        const user: User = await getUserToToken(req.get('Authorization'));
+        // Конец проверки токена.
+        const id        = req.query._id as string|undefined;
+        const name      = req.query._name as string|undefined;
+
+        const limit: number| undefined      = req.query._limit as any;
+        const page: number | undefined      = req.query._page as any;
+        
+        const d1: string | undefined        = req.query._d1 as any; 
+        const d2: string | undefined        = req.query._d2 as any;
+
+        const filter: string | undefined    = req.query._filter as any;
+        const dateFirst: Date | undefined   = d1 ? convertToDate(d1, "dd/mm/yyyy") : undefined;
+        const dateSecond: Date | undefined  = d2 ? convertToDate(d2, "dd/mm/yyyy") : undefined;
+
+        const system    = new OrderPlanSystem();
+
+        const result    = await system.getData({
+                id: Number(id) === 6?undefined:id, // Если общий журнал, не указываем id,
+                limit,
+                page,
+                d1: dateFirst,
+                d2: dateSecond,
+                filter
+            });
+
+        const allOrders = result.map(o => {
+            const order: JournalOrderDto = {
+                    id:                 o.id,
+                    itmOrderNum:        o.itmOrderNum,
+                    sectorId:           o.sectorId!,
+                    sectorName:         o.sectorName!,
+                    nameSectorInOrder:  o.accepdedEmployee||o.workerName!,
+                    datePlan:           o.datePlan!,
+                    fasadSquare:        o.fasadSquare,
+                    generalSquare:      o.generalSquare,
+                    workingTime:        o.workingTime,
+                    status:             o.status||undefined,
+                    data: {
+                        comments: o.data?.comments
+                    }
+                }
+                return order;
+        })
+        let orders      = new Array<JournalOrderDto>();
+        orders = allOrders;
+        res.status(200).json([...result]);
+    } catch (e) {
+        next(e);
+    }
+})
+
 router.get(
     '/:id',
     async (req: Request, res: Response, next: NextFunction) => {
@@ -281,7 +373,7 @@ router.get(
                 journal.push(sector);
             }
 
-            if (!journal.length) throw ApiError.BadRequest(defaultError, ['Такой журнал не существует.']);
+            //if (!journal.length) throw ApiError.BadRequest(defaultError, ['Такой журнал не существует.']);
             return res.json({journal});
 
         } catch (e) {next(e);}

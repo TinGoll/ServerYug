@@ -23,6 +23,7 @@ export declare interface JournalOrderDto {
     fasadSquare: number;
     generalSquare: number;
     workingTime: number
+    status?: string;
     data: any;
 }
 

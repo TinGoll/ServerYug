@@ -1,16 +1,16 @@
-import { format } from "date-format-parse";
 import User from "../entities/User";
 import ApiError from "../exceptions/ApiError";
 import { createItmDb, Firebird } from "../firebird/Firebird";
 import { IDependencies, IDependenciesDb } from "../types/at-order-types";
 import { IExtraDataDb } from "../types/extraDataTypes";
-import { JournalDataDto, JournalOrderDto, JournalSectorList } from "../types/journalTypes";
+import { JournalSectorList } from "../types/journalTypes";
 import { IPlanOrder, IPlanOrderDb } from "../types/plans-order-types";
 import { IKeyword, ISystem, ISystemOptions } from "../types/system-types";
 import dtoConverter from "./dtoConverter";
 import { orderKeywords } from "./search-keywords";
 import { getAllUsers } from "./users";
 import { getSectors } from "./virtualJournalsFun";
+
 
 export class OrderPlanSystem implements ISystem<IPlanOrder> {
     private static instance: OrderPlanSystem;
@@ -30,6 +30,16 @@ export class OrderPlanSystem implements ISystem<IPlanOrder> {
         }
         OrderPlanSystem.instance = this;
     }
+
+    async getDependenses(): Promise<IDependencies[]> {
+        try {
+            if (!this.dependenses?.length) this.refrash();
+            return this.dependenses;
+        } catch (e) {
+            throw e;
+        }
+    }
+
     async getData(options?: ISystemOptions): Promise<IPlanOrder[]> {
         try {
             if(this.isEmpty() || !this.lastUpdate || (this.lastUpdate + (this.updateTime * 60 * 1000)) < Date.now()) 
@@ -43,7 +53,7 @@ export class OrderPlanSystem implements ISystem<IPlanOrder> {
                 if (!journalNameId) check = true;
                 /** Если профильщик - выходим */
                 if (order.isProfiler) return false;
-
+                if (!order.sectorId) return false;
                 for (const d of dependenses) {
                     if (order.sectorId === d.transfer) {
                         check = true;
@@ -56,12 +66,9 @@ export class OrderPlanSystem implements ISystem<IPlanOrder> {
                 /** если текущая локация совпадает с сектором, то показываем рабочее время в этом участке или обновляем */
                 if (order.locationSectorId && order.sectorId === order.locationSectorId) {
                     //console.log(order.accepdedDate);
-                    
                     if (order.transferDate) {
                         order.workingTime = this.getWorkTime(order.transferDate);
                     }
-                   
-                    
                 } else order.workingTime = 0;
                 return check;
             })
@@ -85,15 +92,19 @@ export class OrderPlanSystem implements ISystem<IPlanOrder> {
             if (d2 && d2 instanceof Date) dateSecond = new Date(d2.getFullYear(), d2.getMonth(), d2.getDate());
 
             const { queryKeys, keys } = this.getArrayOfKeywords(filter);
+
             if (!queryKeys.length && !keys.length && !dateFirst && !dateSecond) return orders;
 
             const filteredArray = orders.filter(order => {
                 let check: boolean = true;
                 const date = order.datePlan && order.datePlan instanceof Date ? new Date(order.datePlan.getFullYear(), order.datePlan.getMonth(), order.datePlan.getDate()).valueOf() : undefined;
+               
                 if (date && dateFirst)  if(!(date >= dateFirst.valueOf())) return false;
                 if (date && dateSecond) if(!(date <= dateSecond.valueOf())) return false;
+            
                 if (keys.length && check) check = this.containsKeywords(order, keys);
                 if (queryKeys.length && check) check = this.containsWords(order, queryKeys);
+
                 return check;
             })
             return filteredArray;
@@ -104,7 +115,10 @@ export class OrderPlanSystem implements ISystem<IPlanOrder> {
 
     private containsKeywords (order: IPlanOrder, keys: string[]): boolean {
         try {
-            for (const k of keys) {
+            for (const k of keys) {   
+                    const now = new Date();
+                    const toDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())?.valueOf();   
+
                     if (k.toUpperCase() === 'Упакован'.toUpperCase() && order.statusId !== 7) return false;
                     if (k.toUpperCase() === 'Отгружен'.toUpperCase() && order.statusId !== 8) return false;
                     if (k.toUpperCase() === 'На сборке'.toUpperCase() && order.statusId !== 1) return false;
@@ -113,6 +127,20 @@ export class OrderPlanSystem implements ISystem<IPlanOrder> {
                     if (k.toUpperCase() === 'Патина этап №2'.toUpperCase() && order.statusId !== 4) return false;
                     if (k.toUpperCase() === 'Лак этап №3'.toUpperCase() && order.statusId !== 5) return false;
                     if (k.toUpperCase() === 'В упаковке'.toUpperCase() && order.statusId !== 6) return false;
+
+                    if (k.toUpperCase() === 'Переданные'.toUpperCase()) {
+                        if (order.locationSectorId != order.sectorId) return false;
+                    } 
+
+                    if (k.toUpperCase() === 'overdue'.toUpperCase()) {
+                        if (order.datePlan?.valueOf()! >= toDay) return false;
+                    } 
+                    if (k.toUpperCase() === 'forToday'.toUpperCase()) {
+                        if (order.datePlan?.valueOf()! != toDay) return false;
+                    } 
+                    if (k.toUpperCase() === 'forFuture'.toUpperCase()) {
+                        if (order.datePlan?.valueOf()! <= toDay) return false;
+                    }
             }
             return true;
         } catch (e) {
@@ -120,8 +148,10 @@ export class OrderPlanSystem implements ISystem<IPlanOrder> {
         }
     }
 
+
     private containsWords (order: any, words: string[]) : boolean {
         try {
+
             if (!words.length) return true;
             const comments = order?.data?.comments;
             const extraData = order?.data?.extraData;
@@ -306,9 +336,11 @@ export class OrderPlanSystem implements ISystem<IPlanOrder> {
     private getArrayOfKeywords(str: string): {queryKeys: string[], keys: string[]} {
         try {
             if (!str || str == '') throw ApiError.BadRequest("Нет данных.")
-            const keys:         string[] = [];
+
             const set = new Set<string>();
+
             let filterStr:      string = str.replace(/\s+/g, ' ').trim().toUpperCase();
+
             for (const k of this.keywords) {
                 const regX = new RegExp(`${k.key.toUpperCase()}`, 'g');
                 if (filterStr.match(regX)) {
@@ -317,6 +349,10 @@ export class OrderPlanSystem implements ISystem<IPlanOrder> {
                 }
             }
             const  queryKeys =  filterStr.replace(/,/g," ").split(' ');
+
+            console.log('queryKeys', queryKeys);
+            console.log('keys: [...set]', [...set]);
+            
             return {queryKeys, keys: [...set]};
         } catch (e) {
             return {

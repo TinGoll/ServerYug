@@ -23,3 +23,4 @@ export declare interface ISystemOptions {
 interface IKeyword {
     key: string, value: string
 }
+
