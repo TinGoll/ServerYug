@@ -109,10 +109,10 @@ router.post(
             )
             //console.log(token)
             //user.setToken(token);
-            await user.permissionLoad();
+            await user.refrash();
             const sectorName        = (await jfunction.getSectors()).find(s => s.id == user?.sectorId)?.name
             const userLinks         = await links.getLinks(user);
-            const permissionList   = await user.getPermission();
+            const permissionList   = await user.getPermissions();
             
             return res.status(200).json({token, userId: user.id, 
                 user: {

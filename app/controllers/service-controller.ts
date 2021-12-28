@@ -2,6 +2,7 @@ import { NextFunction, Request, Response } from "express";
 import ApiError from "../exceptions/ApiError";
 import { clearAdoptedQueryHash } from "../systems/adopted-order-system";
 import { OrderPlanSystem } from "../systems/order-plans-system";
+import UserSystem from "../systems/user-system";
 import { getAllUsers } from "../systems/users";
 
 class ServiceController {
@@ -23,7 +24,8 @@ class ServiceController {
             progress[1].complited = true;
 
             /** Пользователи */
-            getAllUsers();
+            const userSystem = new UserSystem();
+            await userSystem.refrash();
             progress[2].complited = true;
 
             res.status(200).json({message: "Системы успешно перезагружены, hash - данные обновлены.", progress})

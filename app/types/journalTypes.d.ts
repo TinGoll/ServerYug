@@ -41,8 +41,10 @@ export declare interface JournalDataDto {
     id?: number;
     journalId?: number;
     sectorId?: number;
+    sector?:   string;
     orderId?: number;
     employeeId?: number;
+    userName?:  string;
     group?: string;
     type?: string;
     name: string;

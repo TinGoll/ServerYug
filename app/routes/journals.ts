@@ -119,6 +119,9 @@ router.post
                 VALUES (${comment.orderId}, ${user.sectorId}, ${user.id}, 'Comment', 'Комментарий', '${comment.text}') 
                 RETURNING ID;
             `) as any;
+            const planSystem = new OrderPlanSystem();
+            planSystem.refrash();
+            
             return res.status(201).json({dataId: ID});
         } catch (e) {next(e);}
     }
@@ -211,6 +214,7 @@ router.get('/plan-orders', async (req:Request, res: Response, next: NextFunction
         // Конец проверки токена.
         const id        = req.query._id as string|undefined;
         const name      = req.query._name as string|undefined;
+        const sectorId  = req.query._idsector as string|undefined; 
 
         const limit: number| undefined      = req.query._limit as any;
         const page: number | undefined      = req.query._page as any;
@@ -232,8 +236,12 @@ router.get('/plan-orders', async (req:Request, res: Response, next: NextFunction
                 d2: dateSecond,
                 filter
             });
-
-        const allOrders = result.map(o => {
+        const allOrders = result
+        .filter(o => {
+            if (!sectorId) return true;
+            return Number(o.sectorId) == Number(sectorId);
+        })
+        .map(o => {
             const order: JournalOrderDto = {
                     id:                 o.id,
                     itmOrderNum:        o.itmOrderNum,
@@ -251,9 +259,10 @@ router.get('/plan-orders', async (req:Request, res: Response, next: NextFunction
                 }
                 return order;
         })
+
         let orders      = new Array<JournalOrderDto>();
         orders = allOrders;
-        res.status(200).json([...result]);
+        res.status(200).json([...orders]);
     } catch (e) {
         next(e);
     }

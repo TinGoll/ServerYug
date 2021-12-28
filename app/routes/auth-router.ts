@@ -22,7 +22,7 @@ router.post(prefix + '/register', registerSchema, validateRequestSchema, authCon
 router.post(prefix + '/login', authController.login); // Вход в систему
 router.post(prefix + '/login', authController.logout); //Выход из системы (не реализовано)
 // router.post('/refresh'); // Обновление токена (не реализовано)
-// router.post('/test');
+router.post(prefix + '/get-login-data', authController.getUserData);
 // router.post('/test');
 // router.post('/test');
 

@@ -93,33 +93,36 @@ class AuthService {
     }
 
     async getLoginData(user: User): Promise<ILoginData> {
-        if (!user || !user.id) throw ApiError.UnauthorizedError();
-        const token = jwt.sign(
-                {userId: user.id},
-                settings.secretKey,
-                {expiresIn: '10h'}
-        )
-        await user.permissionLoad();
-        const sectorName        = (await jfunction.getSectors()).find(s => s.id == user?.sectorId)?.name!
-        const userLinks         = await links.getLinks(user);
-        const permissionList    = await user.getPermission();
-
-        const loginData: ILoginData = {
-            token,
-            userId: user?.id,
-            user: {
-                userName:       user.userName!, 
-                firstName:      user.firstName, 
-                lastName:       user.lastName, 
-                middleName:     user.middleName, 
-                isOwner:        user.isOwner,
-                sectorId:       user.sectorId!,
-                sectorName,
-                permissionList,
-                links:          userLinks
+        try {
+             if (!user || !user.id) throw ApiError.UnauthorizedError();
+            const token = jwt.sign(
+                    {userId: user.id},
+                    settings.secretKey,
+                    {expiresIn: '10h'}
+            )
+            await user.refrash();
+            const sectorName        = (await jfunction.getSectors()).find(s => s.id == user?.sectorId)?.name!
+            const userLinks         = await links.getLinks(user);
+            const permissionList    = user.getPermissions();
+            const loginData: ILoginData = {
+                token,
+                userId: user?.id,
+                user: {
+                    userName:       user.userName!, 
+                    firstName:      user.firstName, 
+                    lastName:       user.lastName, 
+                    middleName:     user.middleName, 
+                    isOwner:        user.isOwner,
+                    sectorId:       user.sectorId!,
+                    sectorName,
+                    permissionList,
+                    links:          userLinks
+                }
             }
+            return loginData;
+        } catch (e) {
+            throw e;
         }
-        return loginData;
     }
 
 }

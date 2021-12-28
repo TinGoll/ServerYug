@@ -1,13 +1,30 @@
+import { UserDto } from "./user";
+
 export declare interface ISystem<T> {
-    /** Обновление или загрузка данных */
-    refrash (): Promise<void>;
+    /** Добавление нового пользователя */
+    add(item: T): Promise<T>;
+    /** Получение пользователя по id */
+    get(id: number): Promise<T|null>;
     /** Получение данных, используя фильтр */
-    getData (options?: ISystemOptions):Promise<T[]>;
+    getAll (options?: ISystemOptions):Promise<T[]>;
     /** Есть ли данные в объекте */
     isEmpty (): boolean;
     /** Очистка данных */
     clear ():void;
 }
+
+export declare interface IRefrashable {
+    /** Обновление или загрузка данных */
+    refrash (): Promise<void>;
+}   
+
+export declare interface ISavable<T> {
+    save (): Promise<T>;
+}
+export declare interface IDeletable<T> {
+    delete (element: T): Promise<{id: number}>
+}
+
 
 export declare interface ISystemOptions {
     id?:        any;

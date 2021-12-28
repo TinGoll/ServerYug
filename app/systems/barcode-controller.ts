@@ -1,9 +1,5 @@
 import { NextFunction, Request, Response } from 'express';
-import ApiError from '../exceptions/ApiError';
-import { createItmDb } from '../firebird/Firebird';
 
-import { IExtraData, IExtraDataDb } from '../types/extraDataTypes';
-import { getListExtradataToName } from './extradata-system';
 //const _     = require('lodash');
 
 

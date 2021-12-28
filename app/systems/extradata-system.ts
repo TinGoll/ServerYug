@@ -59,6 +59,7 @@ export const getListExtradataToName = async (name: string): Promise<any[]> => {
     }
 }
 
+/** Добавление нового парамметра */
 export const addItemInListExtraData = async (listName: string, item: string): Promise<void> => {
     try {
         const db = await createItmDb();

@@ -309,8 +309,7 @@ router.patch(
                  // Доп списания / начисления
                 if (sector.otherTransactoins.data.length > 0) {
                     for (const otherTransaction of sector.otherTransactoins.data) {
-                        console.log(otherTransaction);
-                        
+
                         //if (!otherTransaction.userName) continue;
                         if (!otherTransaction.amount) continue;
                         if (otherTransaction.modifer !== 1 && otherTransaction.modifer !== -1) continue;

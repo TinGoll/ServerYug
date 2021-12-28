@@ -3,7 +3,7 @@ import { BarcodesDb, IAtOrder, IAtOrdersDb, IBarcode, IDependencies, IDependenci
 import { JournalDataDb, JournalDataDto } from "../types/journalTypes";
 
 class DtsConverter {
-    JournalDataDbToDto (data: JournalDataDb) {
+    JournalDataDbToDto (data: JournalDataDb): JournalDataDto {
         try {
             return {
                 id: data.ID,

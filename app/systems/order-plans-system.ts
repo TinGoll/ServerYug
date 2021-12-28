@@ -12,7 +12,7 @@ import { getAllUsers } from "./users";
 import { getSectors } from "./virtualJournalsFun";
 
 
-export class OrderPlanSystem implements ISystem<IPlanOrder> {
+export class OrderPlanSystem  {
     private static instance: OrderPlanSystem;
 
     private orders: IPlanOrder[] = [];
@@ -115,39 +115,37 @@ export class OrderPlanSystem implements ISystem<IPlanOrder> {
 
     private containsKeywords (order: IPlanOrder, keys: string[]): boolean {
         try {
-            for (const k of keys) {   
-                    const now = new Date();
-                    const toDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())?.valueOf();   
+            for (const k of keys) {
+                const now = new Date();
+                const toDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())?.valueOf();   
 
-                    if (k.toUpperCase() === 'Упакован'.toUpperCase() && order.statusId !== 7) return false;
-                    if (k.toUpperCase() === 'Отгружен'.toUpperCase() && order.statusId !== 8) return false;
-                    if (k.toUpperCase() === 'На сборке'.toUpperCase() && order.statusId !== 1) return false;
-                    if (k.toUpperCase() === 'На шлифовке'.toUpperCase() && order.statusId !== 2) return false;
-                    if (k.toUpperCase() === 'Покраска этап №1'.toUpperCase() && order.statusId !== 3) return false;
-                    if (k.toUpperCase() === 'Патина этап №2'.toUpperCase() && order.statusId !== 4) return false;
-                    if (k.toUpperCase() === 'Лак этап №3'.toUpperCase() && order.statusId !== 5) return false;
-                    if (k.toUpperCase() === 'В упаковке'.toUpperCase() && order.statusId !== 6) return false;
+                if (k.toUpperCase() === 'Упакован'.toUpperCase() && order.statusId !== 7) return false;
+                if (k.toUpperCase() === 'Отгружен'.toUpperCase() && order.statusId !== 8) return false;
+                if (k.toUpperCase() === 'На сборке'.toUpperCase() && order.statusId !== 1) return false;
+                if (k.toUpperCase() === 'На шлифовке'.toUpperCase() && order.statusId !== 2) return false;
+                if (k.toUpperCase() === 'Покраска этап №1'.toUpperCase() && order.statusId !== 3) return false;
+                if (k.toUpperCase() === 'Патина этап №2'.toUpperCase() && order.statusId !== 4) return false;
+                if (k.toUpperCase() === 'Лак этап №3'.toUpperCase() && order.statusId !== 5) return false;
+                if (k.toUpperCase() === 'В упаковке'.toUpperCase() && order.statusId !== 6) return false;
 
-                    if (k.toUpperCase() === 'Переданные'.toUpperCase()) {
-                        if (order.locationSectorId != order.sectorId) return false;
-                    } 
-
-                    if (k.toUpperCase() === 'overdue'.toUpperCase()) {
-                        if (order.datePlan?.valueOf()! >= toDay) return false;
-                    } 
-                    if (k.toUpperCase() === 'forToday'.toUpperCase()) {
-                        if (order.datePlan?.valueOf()! != toDay) return false;
-                    } 
-                    if (k.toUpperCase() === 'forFuture'.toUpperCase()) {
-                        if (order.datePlan?.valueOf()! <= toDay) return false;
-                    }
+                if (k.toUpperCase() === 'Переданные'.toUpperCase()) {
+                    if (order.locationSectorId != order.sectorId) return false;
+                }
+                if (k.toUpperCase() === 'overdue'.toUpperCase()) {
+                    if (order.datePlan?.valueOf()! >= toDay) return false;
+                }
+                if (k.toUpperCase() === 'forToday'.toUpperCase()) {
+                    if (order.datePlan?.valueOf()! != toDay) return false;
+                } 
+                if (k.toUpperCase() === 'forFuture'.toUpperCase()) {
+                    if (order.datePlan?.valueOf()! <= toDay) return false;
+                }
             }
             return true;
         } catch (e) {
             return false;
         }
     }
-
 
     private containsWords (order: any, words: string[]) : boolean {
         try {
@@ -264,7 +262,14 @@ export class OrderPlanSystem implements ISystem<IPlanOrder> {
                 const accepdedEmployee = users.find(u => u.id === d.EMPLOYEE_ACCEPTED_ID);
                 const transferEmployee = users.find(u => u.id === d.EMPLOYEE_TRANSFER_ID);
                 const comments = extraData.filter(e => e.ID_ORDER === d.ID && e.DATA_NAME.toUpperCase() === 'Комментарий'.toUpperCase())
-                    .map(e => dtoConverter.JournalDataDbToDto(e));
+                    .map(e => {
+                        const comment =  dtoConverter.JournalDataDbToDto(e)
+                        const user = users.find(u => u.id == e.ID_EMPLOYEE);
+                        const sector = sectors.find(s => s.id == e.ID_SECTOR);
+                        comment.userName = user?.userName||undefined;
+                        comment.sector = sector?.name||undefined;
+                        return comment;
+                    });
 
                 const order: IPlanOrder = {
                     id: d.ID,
@@ -349,10 +354,6 @@ export class OrderPlanSystem implements ISystem<IPlanOrder> {
                 }
             }
             const  queryKeys =  filterStr.replace(/,/g," ").split(' ');
-
-            console.log('queryKeys', queryKeys);
-            console.log('keys: [...set]', [...set]);
-            
             return {queryKeys, keys: [...set]};
         } catch (e) {
             return {

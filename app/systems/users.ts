@@ -1,4 +1,3 @@
-import db from '../dataBase';
 import User from '../entities/User';
 import { UserOptionsDb } from '../types/userTypes';
 import jwt from 'jsonwebtoken';
@@ -6,7 +5,7 @@ import ApiError from '../exceptions/ApiError';
 import { decodedDto } from '../types/user';
 import settings from '../settings';
 
-let userList: User []   = [];
+import UserSystem from './user-system';
 
 export const getUserToToken = async (token: string | undefined): Promise<User> => {
     try {
@@ -14,6 +13,7 @@ export const getUserToToken = async (token: string | undefined): Promise<User> =
         const decoded: string | jwt.JwtPayload = jwt.verify(token, settings.secretKey);
         const user = await getUserToID((decoded as decodedDto).userId);
         if (!user) throw new Error();
+        if (!user.isOwner && user.permissionList.length == 0) await user.refrash();
         return user;
     } catch (e) {
         throw ApiError.UnauthorizedError();
@@ -22,73 +22,31 @@ export const getUserToToken = async (token: string | undefined): Promise<User> =
 
 export const getAllUsers = async (): Promise<User[]> => {
     try {
-        const res = await db.executeRequest(`
-            SELECT DISTINCT
-                E.ID, E.MGMT_PASS, E.NAME, E.FIRSTNAME, E.LASTNAME, E.MIDDLENAME,
-                E.BANK_CARD, E.PHONE, E.CARD_HOLDER,
-                E.DEPARTMENT, E.ID_SECTOR, E.STATUS, E.LOCATION,
-                PERMISSION_GROUP_ID, G.NAME AS PERMISSION_GROUP
-            FROM EMPLOYERS E
-            LEFT JOIN PERMISSIONS_GROUP G ON (E.PERMISSION_GROUP_ID = G.ID)
-        `);
-        if (res.length) {
-            const tempUserList = res.map(item => {
-                return createUser(item);
-            });
-            userList = [...tempUserList];
-        }
-        return userList;
-    } catch (error) {
-        console.log(error);
-        return [];
+        const system = new UserSystem();
+        const users = await system.getAll();
+        return users
+    } catch (e) {
+        throw e;
     }
 }
 
 export const getUser = async (userName: string): Promise<User | null> => {
     try {
-        const condidate = userList.find(item => item?.userName?.toUpperCase() == userName.toUpperCase());
-        if (condidate) return condidate;
-        const res = await db.executeRequest(`
-            SELECT
-            E.ID, E.MGMT_PASS, E.NAME, E.FIRSTNAME, E.LASTNAME, E.MIDDLENAME,
-            E.BANK_CARD, E.PHONE, E.CARD_HOLDER,
-            E.DEPARTMENT, E.ID_SECTOR, E.STATUS, E.LOCATION,
-            PERMISSION_GROUP_ID, G.NAME AS PERMISSION_GROUP
-                FROM EMPLOYERS E
-                LEFT JOIN PERMISSIONS_GROUP G ON (E.PERMISSION_GROUP_ID = G.ID)
-                WHERE UPPER(E.NAME) = UPPER('${userName}')`);
-
-        if (!res || res.length == 0) return null;                                                
-        const [item] = res;                               
-        const user = createUser(item);
-        userList.push(user);
+        const system = new UserSystem();
+        const user = await system.getToUserName(userName);
         return user;
-    } catch (error) {
-        console.log('Ошибка getUser', error);
-        return null;
-    }  
+    } catch (e) {
+        throw e;
+    }
 }
 
 export const getUserToID = async (id: number): Promise<User | null> => {
     try {
-        const condidate = userList.find(item => item.id === id);
-        if (condidate) return condidate;
-        const [item] = await db.executeRequest(`
-            SELECT
-            E.ID, E.MGMT_PASS, E.NAME, E.FIRSTNAME, E.LASTNAME, E.MIDDLENAME,
-            E.BANK_CARD, E.PHONE, E.CARD_HOLDER,
-            E.DEPARTMENT, E.ID_SECTOR, E.STATUS, E.LOCATION,
-            PERMISSION_GROUP_ID, G.NAME AS PERMISSION_GROUP
-                FROM EMPLOYERS E
-                LEFT JOIN PERMISSIONS_GROUP G ON (E.PERMISSION_GROUP_ID = G.ID)
-                WHERE E.id = ${id}`);
-        if (!item)  return null; 
-        const user = createUser(item);
-        userList.push(user);
+        const system = new UserSystem();
+        const user = await system.get(id);
         return user;
-    } catch (error) {
-        const e = error as Error;
-        throw new Error('Get User To ID: ' + e.message);
+    } catch (e) {
+        throw e;
     }
 }
 
@@ -116,6 +74,5 @@ export const createUser = (options: UserOptionsDb): User => {
 export default {
     getUser,
     getUserToID,
-    getAllUsers,
-    userList
+    getAllUsers
 }
