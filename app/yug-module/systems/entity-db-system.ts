@@ -1,6 +1,7 @@
 import { ApiComponent, ApiEntity, ApiEntityOptions } from "yug-entity-system";
 import FirebirdNativeAdapter from "../data-base/adapters/FirebirdNativeAdapter";
 
+/** Сохранение родительской и всех дочерних сущностей */
 export const saveEntities = async (entities: ApiEntityOptions[]): Promise<ApiEntityOptions[]> => {
     try {
         const disassembleEntity = disassemble(entities);
@@ -12,7 +13,16 @@ export const saveEntities = async (entities: ApiEntityOptions[]): Promise<ApiEnt
         throw e;
     }
 }
+/** Подготовка копонента к сохранению. Добавление в коллекцию Set */
+export const prepareComponent = (components: ApiComponent[]): Set<ApiComponent> => {
+    try {
+        return new Set<ApiComponent>();
+    } catch (e) {
+        throw e;
+    }
+}
 
+/** Разбор всех комопнентов из всех сущностей, в коллеции */
 export const disassembleComponent = (entities: Set<ApiEntityOptions>): Set<ApiComponent> => {
     try {
         const set = new Set<ApiComponent>();
@@ -27,7 +37,7 @@ export const disassembleComponent = (entities: Set<ApiEntityOptions>): Set<ApiCo
         throw e;
     }
 }
-
+/** Разбор и подготовка всех сущностей к сохранению */
 export const disassemble = (entities: ApiEntityOptions[]): Set<ApiEntityOptions> => {
     const set = new Set<ApiEntityOptions>();
     for (const entity of entities) {
@@ -39,6 +49,8 @@ export const disassemble = (entities: ApiEntityOptions[]): Set<ApiEntityOptions>
     }
     return set;
 }
+
+/** Запись компонентв в базу данных  */
 const writeComponentToBatabase = async (disassembleComponents: Set<ApiComponent>) => {
     const db = new FirebirdNativeAdapter();
     const attachment = await db.connect();
@@ -89,18 +101,16 @@ const writeComponentToBatabase = async (disassembleComponents: Set<ApiComponent>
         throw e;
     }
 }
-
+/** Запись сущностей в базу даных */
 const writeEntityToBatabase = async (disassembleEntity: Set<ApiEntityOptions>) => {
     const db = new FirebirdNativeAdapter();
     const attachment = await db.connect();
     const transaction = await attachment.startTransaction();
     try {
-       
         const savable = await attachment.prepare(transaction, `
                 INSERT INTO ENTITIES (ID_PARENT, ID_SAMPLE, CATEGORY, NAME, NOTE, DATE_UPDATE)
                 VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                 RETURNING ID;`);
-
         const editable = await attachment.prepare(transaction, `
             UPDATE ENTITIES E SET E.ID_PARENT = ?,
                     E.ID_SAMPLE = ?,
@@ -109,7 +119,6 @@ const writeEntityToBatabase = async (disassembleEntity: Set<ApiEntityOptions>) =
                     E.NOTE = ?,
                     E.DATE_UPDATE = CURRENT_TIMESTAMP
                 WHERE E.ID = ?`);
-
         for (const entity of disassembleEntity) {
             const signature = entity.signature;
             const father = findFather(entity.parentKey, disassembleEntity);
