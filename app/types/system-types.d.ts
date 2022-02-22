@@ -22,7 +22,12 @@ export declare interface ISavable<T> {
     save (): Promise<T>;
 }
 export declare interface IDeletable<T> {
-    delete (element: T): Promise<{id: number}>
+    delete (element: T): Promise<number|null>
+}
+
+export declare interface IEditable<T> {
+    /** Редактирование */
+    edit (element: T): Promise<T>;
 }
 
 

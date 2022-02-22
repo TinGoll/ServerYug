@@ -1,3 +1,4 @@
+import { ExtraData } from "./extra-data-types";
 import { IExtraData } from "./extraDataTypes";
 import { JournalDataDto } from "./journalTypes";
 
@@ -99,8 +100,8 @@ export declare interface IPlanOrder {
     /** Дополнительные данные */
     data: {
         /** Комментарии к записи, видны во всех журналах, привязаны к ID заказа */
-        comments?: JournalDataDto[],
+        comments?: ExtraData[],
         /** Дополнительные данные, видны только в конкретной записи. */
-        extraData?: JournalDataDto[]
+        extraData?: ExtraData[]
     };
 }

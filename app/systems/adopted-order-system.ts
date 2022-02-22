@@ -1,5 +1,6 @@
 import { IAdopted, IAdoptedOrder, IAdoptedOrderDb } from "../types/adopted-orders-types";
-import { IExtraDataDb } from "../types/extraDataTypes";
+import { DbExtraData } from "../types/extra-data-types";
+
 
 export interface IAdoptedQuery {
     httpQueryId: number;
@@ -8,7 +9,7 @@ export interface IAdoptedQuery {
 }
 export interface IAdoptedQueryData {
     ordersDb: IAdoptedOrderDb[];
-    extraDb: IExtraDataDb[];
+    extraDb: DbExtraData[];
 }
 
 export const adoptedQueryHashData: IAdoptedQuery[] = [];
@@ -32,7 +33,6 @@ export const setAdoptedQueryHash = (hashData: IAdoptedQuery): void => {
             clearAdoptedQueryHash(hashData.httpQueryId)
             adoptedQueryHashData.push(hashData);
         }
-        console.log(adoptedQueryHashData.map(d => d.httpQueryId));
     } catch (e) {
         throw e;
     }

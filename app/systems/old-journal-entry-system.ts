@@ -1,11 +1,13 @@
 import { createItmDb, Firebird } from "../firebird/Firebird";
 import { IAtOrder, IDependencies, IDependenciesDb, ITransferOrderElement, ITransferOrders } from "../types/at-order-types";
-import { IExtraData } from "../types/extraDataTypes";
+
 import { JournalSectorList } from "../types/journalTypes";
 import { getSectors } from "./virtualJournalsFun";
 import { format } from 'date-format-parse';
 import adoptedOrderService from "../services/adopted-order-service";
 import { IAdopted } from "../types/adopted-orders-types";
+import { ExtraData } from "../types/extra-data-types";
+import { ExtraDataName } from "./extra-data-system";
 
 export class OldJournalEntry {
     private static instance: OldJournalEntry;
@@ -20,7 +22,7 @@ export class OldJournalEntry {
         OldJournalEntry.instance = this;
     }
 
-    async push(tramsferOrders: ITransferOrders, atOrders: IAtOrder[], extraData: IExtraData[], dependencies: IDependencies[]): Promise<void> {
+    async push(tramsferOrders: ITransferOrders, atOrders: IAtOrder[], extraData: ExtraData[], dependencies: IDependencies[]): Promise<void> {
         try {
             if (!dependencies.length) return;
             switch (dependencies[0]?.journalNameId) {
@@ -60,7 +62,7 @@ export class OldJournalEntry {
                     pages: 0
                 }
 
-                const extraData: IExtraData[] = [];
+                const extraData: ExtraData[] = [];
                 const dependencies: IDependencies[] = [{
                     accepted: 0, journalNameId: 0, id: 0, startStage: false, statusAfterOldId: 0, transfer: 0, statusAfterId: 8
                 }]
@@ -80,8 +82,8 @@ export class OldJournalEntry {
                         completed: true
                     }
                     orders.orders.push(element);
-                    const comments: IExtraData[] = !torder.data?.comments ? [] : torder.data.comments?.map(c => {
-                        const comm: IExtraData = {
+                    const comments: ExtraData[] = !torder.data?.comments ? [] : torder.data.comments?.map(c => {
+                        const comm: ExtraData = {
                             orderId: c.orderId!,
                             journalId: c.journalId!,
                             group: "",
@@ -92,8 +94,8 @@ export class OldJournalEntry {
                         }
                         return comm;
                     });
-                    const other: IExtraData[] = !torder.data?.extraData ? [] : torder.data.extraData?.map(c => {
-                        const comm: IExtraData = {
+                    const other: ExtraData[] = !torder.data?.extraData ? [] : torder.data.extraData?.map(c => {
+                        const comm: ExtraData = {
                             orderId: c.orderId!,
                             journalId: c.journalId!,
                             group: "",
@@ -104,7 +106,7 @@ export class OldJournalEntry {
                         }
                         return comm;
                     });
-                    const edata: IExtraData[] = [...comments, ...other];
+                    const edata: ExtraData[] = [...comments, ...other];
                     for (const d of edata) {
                         extraData.push(d);
                     }
@@ -126,7 +128,7 @@ export class OldJournalEntry {
         }
     }
 
-    private async pushToJournalPacking (tramsferOrders: ITransferOrders, extraData: IExtraData[], dependencies: IDependencies[]): Promise<void> {
+    private async pushToJournalPacking (tramsferOrders: ITransferOrders, extraData: ExtraData[], dependencies: IDependencies[]): Promise<void> {
         try {
             const db = await createItmDb();
             try {
@@ -142,9 +144,9 @@ export class OldJournalEntry {
                     for (const torder of tramsferOrders.orders) {
                         if (torder.completed) {
                             const edata = extraData.filter(e => e.orderId === torder.idOrder);
-                            const box = edata.find(e => e.name.toUpperCase() == 'Количество упаковок'.toUpperCase());
-                            const timePack = edata.find(e => e.name.toUpperCase() == 'Время упаковки'.toUpperCase());
-                            const comments = edata.filter(e => e.name.toUpperCase() === 'Комментарий'.toUpperCase());
+                            const box = edata.find(e => e.name?.toUpperCase() == ExtraDataName.COUNT_BOX.toUpperCase());
+                            const timePack = edata.find(e => e.name?.toUpperCase() == ExtraDataName.TIME_PACKING.toUpperCase());
+                            const comments = edata.filter(e => e.name?.toUpperCase() == ExtraDataName.COMMENT.toUpperCase());
                             const DatePack = timePack?.data ? new Date(timePack?.data): new Date();
                             const countBox = Number(box?.data);
 
@@ -172,11 +174,11 @@ export class OldJournalEntry {
                         if (torder.completed) {
                             const edata = extraData.filter(e => e.orderId === torder.idOrder);
                             
-                            const box = edata.find(e => e.name.toUpperCase() == 'Количество упаковок'.toUpperCase());
-                            const timeOut = edata.find(e => e.name.toUpperCase() == 'Дата отгрузки'.toUpperCase());
-                            const driver = edata.find(e => e.name.toUpperCase() == 'Водитель'.toUpperCase());
+                            const box = edata.find(e => e.name?.toUpperCase() == ExtraDataName.COUNT_BOX.toUpperCase());
+                            const timeOut = edata.find(e => e.name?.toUpperCase() == ExtraDataName.DATE_OUT.toUpperCase());
+                            const driver = edata.find(e => e.name?.toUpperCase() == ExtraDataName.DRIVER.toUpperCase());
 
-                            const comments = edata.filter(e => e.name.toUpperCase() === 'Комментарий'.toUpperCase());
+                            const comments = edata.filter(e => e.name?.toUpperCase() === ExtraDataName.COMMENT.toUpperCase());
                             const DateOut = timeOut?.data ? new Date(timeOut?.data): new Date();
                             const countBox = Number(box?.data);
 

@@ -139,7 +139,7 @@ export default class UserSystem implements ISystem<User>, IRefrashable, IDeletab
             throw e;
         }  
     }
-    delete(element: User): Promise<{ id: number; }> {
+    delete(element: User): Promise<number|null> {
         throw new Error("Method not implemented.");
     }
    

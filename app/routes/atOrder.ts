@@ -5,7 +5,7 @@ import { check, validationResult } from 'express-validator';
 import { format } from 'date-format-parse';
 import jfunction from '../systems/virtualJournalsFun';
 import { JournalOtherTransDb, JournalSalaryDb, JournalTransactionsDb, SalarySectorDto } from '../types/journalTypes';
-import extraSystem from '../systems/extradata-system';
+
 import ApiError from '../exceptions/ApiError';
 import User from '../entities/User';
 import { getUserToToken } from '../systems/users';
@@ -313,13 +313,6 @@ router.patch(
                         //if (!otherTransaction.userName) continue;
                         if (!otherTransaction.amount) continue;
                         if (otherTransaction.modifer !== 1 && otherTransaction.modifer !== -1) continue;
-                        console.log(`
-                            insert into OTHER_TRANSACTIONS (ID_TRANSACTION, ID_SECTOR, NAME, DESCRIPTION, AMOUNT, MODIFER, TRANS_COMMENT) 
-                            values (${transaction.ID}, ${sector.id}, '${otherTransaction.userName}', 
-                                '${otherTransaction.description}', ${Math.abs(otherTransaction.amount)}, 
-                                ${otherTransaction.modifer}, ${otherTransaction.comment ? '\'' + otherTransaction.comment + '\'' : null})
-                        `);
-                        
 
                         await db.executeRequest(`
                             insert into OTHER_TRANSACTIONS (ID_TRANSACTION, ID_SECTOR, NAME, DESCRIPTION, AMOUNT, MODIFER, TRANS_COMMENT) 

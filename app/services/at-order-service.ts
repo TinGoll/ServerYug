@@ -4,14 +4,14 @@ import { BarcodesDb, IAtOrdersDb, IBarcode, IDependencies, IDependenciesDb, ILoc
 import jfunction, { IAssociationNewAndOldSectors } from '../systems/virtualJournalsFun';
 import dtoConverter from "../systems/dtoConverter";
 import ApiError from "../exceptions/ApiError";
-import setExtraData from "../systems/extradata-system";
 import { format } from 'date-format-parse';
 
 import atOrderQuery from '../query/atOrder';
-import { IExtraData } from "../types/extraDataTypes";
 import { clearAdoptedQueryHash } from "../systems/adopted-order-system";
 import { OldJournalEntry } from "../systems/old-journal-entry-system";
 import { OrderPlanSystem } from "../systems/order-plans-system";
+import ExtraDataSystem from "../systems/extra-data-system";
+import { ExtraData } from "../types/extra-data-types";
 
 class AtOrderService {
     /**
@@ -22,6 +22,7 @@ class AtOrderService {
 
     async transferOrders (transferOrders: ITransferOrders): Promise<{message: string, orders: ITransferOrderElement[]}> {
         try {
+            
             const db = await createItmDb();
              try {
                 const transferOrderErrors: string[] = [];
@@ -95,7 +96,7 @@ class AtOrderService {
                 const ordersAt = ordersFromDb.map(o => dtoConverter.convertAtOrderDbToDto(o));
                 const orderWorks = orderWorksDb.map(w => dtoConverter.convertWorkOrdersDbToDto(w));
                 const locationOrders =  orderLocationsDb.map(l => dtoConverter.convertLocationOrderDbToDto(l));
-                const ordersExtraData: IExtraData[] = transferOrders.extraData || [];
+                const ordersExtraData: ExtraData[] = transferOrders.extraData || [];
 
                 //if (!ordersAt.length) transferOrderErrors.push('Ни один из указанных заказов, не может быть передан, в виду отсутствия их в работе. Обратитесь к менеджеру заказа.');
 
@@ -112,13 +113,13 @@ class AtOrderService {
                     const location = locationOrders.find(l => l.orderId === order.idOrder);
                     // Старый вариант комментария, обеденяем с новым через доп-свойства
                     if (order.comment) {
-                        const extraComment = ordersExtraData.find(e => e.orderId === order.idOrder && e.group.toUpperCase() === 'Comment'.toUpperCase());
+                        const extraComment = ordersExtraData.find(e => e.orderId === order.idOrder && e.group?.toUpperCase() === 'Comment'.toUpperCase());
                         if (extraComment) {
                             if(extraComment.data?.toUpperCase() !== order.comment.toUpperCase()) {
                                 extraComment.data += `, ${order.comment}`;
                             }
                         }else{
-                            const commentData: IExtraData ={
+                            const commentData: ExtraData ={
                                 orderId: order.idOrder,
                                 journalId: 0,
                                 group: "Comment",
@@ -180,6 +181,8 @@ class AtOrderService {
                              *  Если нет работ по передаче в текущий участок, то принимаем.
                              */
                             const isTherePlans = await this.sectorValidator(transfer?.idSector!, works, allDependencies, associationNewAndOldSectors)
+                            console.log(isTherePlans);
+                            
                             if (isTherePlans) {
                                 order.completed = false;
                                 order.description = `Заказ не был передан в участок ${transfer?.sector} и ${transfer?.sector} не являеться стартовым участком.`;
@@ -231,7 +234,8 @@ class AtOrderService {
                 }
 
                 if (ordersExtraData && ordersExtraData?.length) {
-                    const countExtraData = await setExtraData(ordersExtraData);
+                    const extraDataSystem = new ExtraDataSystem()
+                    await extraDataSystem.addToArray(ordersExtraData);
                 } 
                 /** Добавление заказа в старый журнал, выполняеться асинхронно без ожидания результата */
                 const oldJournalEntry = new OldJournalEntry();
@@ -248,7 +252,6 @@ class AtOrderService {
                 }
                 return {message, orders: transferOrders.orders};
             } catch (e) {throw e;} finally { 
-                console.log('at order - db.detach');
                 db.detach();}
         } catch (e) {throw e;}
 

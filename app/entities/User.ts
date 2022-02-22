@@ -41,7 +41,7 @@ export default class User implements IUser,  ISavable<User>, IDeletable<User>, I
     constructor (options: UserDto) {
         this.setDto(options);
     }
-    delete(element: User): Promise<{ id: number; }> {
+    delete(element: User): Promise<number|null> {
         throw new Error('Method not implemented.');
     }
     private setDto(options: UserDto): void {

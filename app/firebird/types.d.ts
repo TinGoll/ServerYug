@@ -6,8 +6,7 @@ export declare interface FirebirdConnectionOptions {
     password?: string;
     role?: any;
     pageSize?: number;
-    lowercase_keys: boolean;
-    retryConnectionInterval?: number;
+    lowercase_keys?: boolean;
 }
 
 export declare interface FirebirdConnection {
@@ -36,7 +35,7 @@ export declare interface FirebirdStatic {
 }
 
 export declare interface FirebirdPool {
-    get(callback: FirebirdConnection): void; 
+    get(callback: DatabaseCallback): void; 
     destroy(): void;
 }
 

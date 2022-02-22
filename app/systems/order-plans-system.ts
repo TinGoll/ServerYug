@@ -1,15 +1,21 @@
+
+import { format } from "date-format-parse";
 import User from "../entities/User";
 import ApiError from "../exceptions/ApiError";
 import { createItmDb, Firebird } from "../firebird/Firebird";
 import { IDependencies, IDependenciesDb } from "../types/at-order-types";
-import { IExtraDataDb } from "../types/extraDataTypes";
-import { JournalSectorList } from "../types/journalTypes";
+import { ExtraData } from "../types/extra-data-types";
+
+import {  JournalSectorList } from "../types/journalTypes";
 import { IPlanOrder, IPlanOrderDb } from "../types/plans-order-types";
-import { IKeyword, ISystem, ISystemOptions } from "../types/system-types";
+import { IKeyword, ISystemOptions } from "../types/system-types";
 import dtoConverter from "./dtoConverter";
+import ExtraDataSystem, { ExtraDataName } from "./extra-data-system";
 import { orderKeywords } from "./search-keywords";
 import { getAllUsers } from "./users";
 import { getSectors } from "./virtualJournalsFun";
+
+
 
 
 export class OrderPlanSystem  {
@@ -17,10 +23,12 @@ export class OrderPlanSystem  {
 
     private orders: IPlanOrder[] = [];
     private dependenses: IDependencies[] = [];
-    
+
     private statuses: {id: number, name: string, order: number}[] = []
-    private updateTime: number = 480; // Минуты
+    
+    private updateTime: number = 20; // Минуты
     private defaultLimit: number = 25;
+
     private lastUpdate: number|null = null; // Последнее обновление в мсек.
     private keywords: IKeyword [] = orderKeywords;
 
@@ -30,6 +38,17 @@ export class OrderPlanSystem  {
         }
         OrderPlanSystem.instance = this;
     }
+
+    async getCommentToOrderId (id: number): Promise<ExtraData[]> {
+        try {
+            const system = new ExtraDataSystem();
+            const data =  await system.getCommentsToOrderId(id)
+            return data;
+        } catch (e) {
+            throw e;
+        }
+    }
+
 
     async getDependenses(): Promise<IDependencies[]> {
         try {
@@ -44,6 +63,8 @@ export class OrderPlanSystem  {
         try {
             if(this.isEmpty() || !this.lastUpdate || (this.lastUpdate + (this.updateTime * 60 * 1000)) < Date.now()) 
                 await this.refrash();
+            //console.log(options);
+            
             const journalNameId: number | undefined = options?.id;
             const dependenses = this.dependenses.filter(d => d.journalNameId === Number(journalNameId));
 
@@ -72,6 +93,16 @@ export class OrderPlanSystem  {
                 } else order.workingTime = 0;
                 return check;
             })
+            const extraSystem = new ExtraDataSystem()
+            const extraData = await extraSystem.getAll()
+
+            //console.log(extraData.filter(e => e.orderId == 20548));
+            
+            
+            for (const o of orders) {
+                const comments = extraData.filter(e => e.orderId === o.id && e.name?.toUpperCase() ===  ExtraDataName.COMMENT.toUpperCase());
+                o.data.comments = comments;
+            }
 
             if (!options) return orders;
             return this.searchEngine(orders, options);
@@ -192,18 +223,17 @@ export class OrderPlanSystem  {
         try {
             const db = await createItmDb();
             try {
+
                 this.orders.splice(0, this.orders.length);
                 const dependensesDb = await db.executeRequest<IDependenciesDb>('SELECT * FROM JOURNAL_DEP');
                 const ordersDb      = await db.executeRequest<IPlanOrderDb>(this.getOrderQuery());
-                const extraData     = await db.executeRequest<IExtraDataDb>(this.getExtraDataQuery());
-
                 const users         = await getAllUsers();
                 const sectors       = await getSectors();
                 const statuses      = await this.getStatuses(db);
 
                 this.dependenses    = dependensesDb.map(d => dtoConverter.convertDependenciesDbToDto(d));
-                this.orders         = this.convertDbToDto(ordersDb, extraData, sectors, users, statuses);
-
+                this.orders         = this.convertDbToDto(ordersDb, sectors, users, statuses);
+            
                 this.orders         = this.orders.sort((a, b) => {
                         const orderA = (sectors.find(s => s?.id == a.sectorId))?.orderBy || 0;
                         const orderB = (sectors.find(s => s?.id == b.sectorId))?.orderBy || 0;
@@ -250,7 +280,7 @@ export class OrderPlanSystem  {
         }
     }
 
-    private convertDbToDto (data: IPlanOrderDb[], extraData: IExtraDataDb[], 
+    private convertDbToDto (data: IPlanOrderDb[], 
             sectors: JournalSectorList[], users: User[], statuses: {id: number, name: string, order: number}[]): IPlanOrder [] {
         try {
                 const planOrders: IPlanOrder[] = data.map(d => {
@@ -261,16 +291,7 @@ export class OrderPlanSystem  {
                     
                 const accepdedEmployee = users.find(u => u.id === d.EMPLOYEE_ACCEPTED_ID);
                 const transferEmployee = users.find(u => u.id === d.EMPLOYEE_TRANSFER_ID);
-                const comments = extraData.filter(e => e.ID_ORDER === d.ID && e.DATA_NAME.toUpperCase() === 'Комментарий'.toUpperCase())
-                    .map(e => {
-                        const comment =  dtoConverter.JournalDataDbToDto(e)
-                        const user = users.find(u => u.id == e.ID_EMPLOYEE);
-                        const sector = sectors.find(s => s.id == e.ID_SECTOR);
-                        comment.userName = user?.userName||undefined;
-                        comment.sector = sector?.name||undefined;
-                        return comment;
-                    });
-
+                
                 const order: IPlanOrder = {
                     id: d.ID,
                     itmOrderNum: d.ITM_ORDERNUM,
@@ -302,7 +323,7 @@ export class OrderPlanSystem  {
                     accepdedSector: accepted?.name || null,
                     locationSector: location?.name || null,
                     data: {
-                        comments
+                        comments: undefined
                     },
                 }
                 return order;

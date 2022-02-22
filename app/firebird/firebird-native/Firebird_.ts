@@ -33,8 +33,8 @@ export default class Firebird {
     }
 
     async dispouse (): Promise<void> {
-        console.log('dispouse ok');
-        
+
+    
         await this.client.dispose()  
     }
 
@@ -54,7 +54,6 @@ export default class Firebird {
                 await transaction.rollback();
                 throw e;
             } finally {
-                console.log('disconnect ok');
                 await attachment.disconnect();
             }
         } catch (e) {
@@ -73,7 +72,7 @@ export default class Firebird {
                 await transaction.rollback();
                 throw e;
             } finally {
-                console.log('disconnect ok');
+         
                 
                 await attachment.disconnect();
             }

@@ -7,9 +7,11 @@ export declare interface ITimeRequest {
     weekdayTxt: string;
     weekdayShortTxt: string;
     ts: Date;
+    timeZoneOffset?: any
 }
 
 export declare interface ILocale {
+    timeZone?: string;
     months: string[];
     monthsShort: string[];
     weekdays: string[];

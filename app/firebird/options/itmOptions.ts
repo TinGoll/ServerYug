@@ -9,7 +9,6 @@ const options: FirebirdConnectionOptions = {
     lowercase_keys: false, // set to true to lowercase keys
     role:           null, // default
     pageSize:       4096, // default when creating database
-    retryConnectionInterval: 1000
 };
 
 export default options;
