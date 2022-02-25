@@ -3,7 +3,7 @@ import ApiError from "../../../exceptions/ApiError";
 import componentModel from "../../db-models/component-model";
 import { saveEntities } from "../../systems/entity-db-system";
 import { EngineObjectData } from "../../types/socket-data-types";
-import { GetSocketMessage, PostSocketMessage } from "../../types/socket-message-types";
+import { PostSocketMessage } from "../../types/socket-message-types";
 import { YugWebsocketAction } from "../../types/socket-types";
 
 /** Создание / изменение engine объекта - компонента или сущьности, определяется автоматически. */
@@ -28,29 +28,6 @@ export const addEngineObject = async ({ ws, service, msg }: YugWebsocketAction<P
         } else {
             throw ApiError.BadRequest('Не удалось автоматически определить тип объекта. Используй type что бы конкретно указать тип.');
         }
-    } catch (e) {
-        service.sendError(ws, e);
-    }
-}
-/** Получение шаблонов компонентов */
-export const getComponentSamples = async ({ ws, service, msg }: YugWebsocketAction<GetSocketMessage>) => {
-    try {
-        const samples = await componentModel.getSamples();
-        service.sender<GetSocketMessage<ApiComponent[]>>(ws, {
-            method:'get',
-            action:'/sample-components',
-            headers: msg.headers,
-            data: samples
-        })
-    } catch (e) {
-        service.sendError(ws, e);
-    }
-}
-
-/** Получение шаблонов компонентов */
-export const getEntitySamples = async ({ ws, service, msg }: YugWebsocketAction<GetSocketMessage>) => {
-    try {
-
     } catch (e) {
         service.sendError(ws, e);
     }

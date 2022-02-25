@@ -73,5 +73,5 @@ const postActionTypes = ['/add-engine-object',] as const
 
 /** Массив POST actions */
 type GetActions = typeof getActionTypes[number]
-const getActionTypes = ['/sample-components',] as const
+const getActionTypes = ['/sample-components', '/sample-entity'] as const
 /****************************************************** */
