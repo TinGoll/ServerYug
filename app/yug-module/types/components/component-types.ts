@@ -19,4 +19,6 @@ export interface DbComponent {
   PROPERTY_TYPE: string;
   ATTRIBUTES: string;
   BINDING_TO_LIST: boolean;
+  KEY: string;
+  ENTITY_KEY: string;
 }

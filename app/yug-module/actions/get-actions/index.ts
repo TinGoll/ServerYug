@@ -11,7 +11,7 @@ const getActions = async (ws: YugWebsocket, service: SocketServive, msg: GetSock
             case '/sample-components':
                 getComponentSamples({ ws, service, msg }); // Получение комонентов
                 break;
-            case '/sample-entity':
+            case '/sample-entities':
                 getEntitySamples({ ws, service, msg }) // Получение шаблонов сущностей
                 break;
             default:

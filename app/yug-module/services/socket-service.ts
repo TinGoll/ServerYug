@@ -1,9 +1,10 @@
 import ApiError from "../../exceptions/ApiError";
 import connectionAction from "../actions/connetc-actions";
+import deleteActions from "../actions/delete-actions";
 import getActions from "../actions/get-actions";
 import postActions from "../actions/post-actions";
 import { BroadcastSystem } from "../systems/broadcast-system";
-import { ConnectionSocketMessage, ErrorSocketMessage, GetSocketMessage, InfoSocketMessage, PostSocketMessage, SocketMessage } from "../types/socket-message-types";
+import { ConnectionSocketMessage, DeleteSocketMessage, ErrorSocketMessage, GetSocketMessage, InfoSocketMessage, PostSocketMessage, SocketMessage } from "../types/socket-message-types";
 import { YugWebsocket } from "../types/socket-types";
 import { errorMessage } from "../utils/error-messages";
 import { eventCloseMessage } from "../utils/event-close-message";
@@ -113,13 +114,16 @@ export class SocketServive {
                 /*********************************************************************************************************************************** */
                 switch (msg.method) {
                     case "connection":
-                        connectionAction(this, service, <ConnectionSocketMessage> msg);
+                        connectionAction(this, service, <ConnectionSocketMessage>msg);
                         break;
                     case 'post':
-                        postActions(this, service, <PostSocketMessage> msg);
+                        postActions(this, service, <PostSocketMessage>msg);
                         break;
                     case 'get':
                         getActions(this, service, <GetSocketMessage>msg);
+                        break; 
+                    case 'delete':
+                        deleteActions(this, service, <DeleteSocketMessage>msg);
                         break;    
                     default:
                         break;

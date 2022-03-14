@@ -1,4 +1,5 @@
-import { ApiEntity, ApiEntityOptions } from "yug-entity-system";
+import { ApiEntity } from "yug-entity-system";
+import { ApiOptionsEntity } from "yug-entity-system/dist/types/entity-types";
 import { FirebirdYugAdapter } from "../../dataBase/adapters/FirebirdAdapter";
 import ApiError from "../../exceptions/ApiError";
 import FirebirdAdapter from "../data-base/adapters/FirebirdAdapter";
@@ -19,27 +20,28 @@ class EntityApiModel {
     ];
 
     /** Сохранение сущности, компонентов сущности, дочерних сущностей и компонентов дочерних сущностей. */
-    async save (entity: ApiEntityOptions, db: ISQLAdapter = new FirebirdAdapter()): Promise<ApiEntityOptions> {
+    async save(entity: ApiOptionsEntity, db: ISQLAdapter = new FirebirdAdapter()): Promise<ApiOptionsEntity> {
         try {
             const ent = {...entity};
-            if (!ent?.signature) throw ApiError.BadRequest("Неверная сигнатура сущности.");
-            if (ent.signature?.id) {
-                await this.updateEntity(ent.signature, db);
+            if (!ent) throw ApiError.BadRequest("Неверная сигнатура сущности.");
+            if (ent?.id) {
+                await this.updateEntity(<ApiEntity> ent, db);
             }else {
-                const newEntry = await this.addEntity(ent.signature, db);
-                ent.signature.id = newEntry.id
+                const newEntry = await this.addEntity(<ApiEntity>ent, db);
+                ent.id = newEntry.id
             }
             if (ent.components && ent.components.length) {
-                const existsComponent = await componentModel.getToParameters({entityId: ent.signature.id});
+                const existsComponent = await componentModel.getToParameters({entityId: ent.id});
                 ent.components.forEach(c => {
                     const candidate = existsComponent.find(cand => 
                         cand.componentName === c.componentName &&
                         cand.propertyName === c.propertyName);
                     if (candidate) c.id = candidate.id;
-                    c.entityId = ent.signature.id;   
+                    c.entityId = ent.id;   
                 });
                 ent.components = await componentModel.save(ent.components, db);
             }
+            /*
             if (ent.сhildEntities && ent.сhildEntities.length) {
                 for (const e of ent.сhildEntities) {
                     try {
@@ -51,6 +53,7 @@ class EntityApiModel {
                     } catch (err) {console.log(`Ошибка сохранения <${e.signature?.name}>`, err);}
                 }
             }
+            */
             return ent;
         } catch (e) {
             throw e;

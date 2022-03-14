@@ -53,7 +53,7 @@ config.routesOrders(app);
 /** Socket соедниниен */
 app.ws('/api/connection', yugSocketController.connect)  
 heartbeat(aWss); // Проверка сердцебияения.
-testSocket(aWss); //Тестовый таймер
+//testSocket(aWss); //Тестовый таймер
 /************************************** */
 
 // Обработка ошибок.

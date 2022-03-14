@@ -2,6 +2,7 @@ import { toInteger } from "lodash";
 import { ApiComponent } from "yug-entity-system";
 import { FirebirdYugAdapter } from "../../dataBase/adapters/FirebirdAdapter";
 import FirebirdAdapter from "../data-base/adapters/FirebirdAdapter";
+import FirebirdNativeAdapter from "../data-base/adapters/FirebirdNativeAdapter";
 import { ISQLAdapter } from "../data-base/adapters/ISQLAdapter";
 import { DbComponent, EntityComponentNames } from "../types/components/component-types";
 
@@ -74,9 +75,9 @@ class ComponentApiModel {
                 INSERT INTO COMPONENTS (
                     ID_ENTITY, COMPONENT_NAME, COMPONENT_DESCRIPTION, PROPERTY_NAME, 
                     PROPERTY_DESCRIPTION, PROPERTY_VALUE, PROPERTY_FORMULA, PROPERTY_TYPE,
-                    ATTRIBUTES, BINDING_TO_LIST
+                    ATTRIBUTES, BINDING_TO_LIST, KEY, ENTITY_KEY
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING ID;`, 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING ID;`, 
             [
                 comp.entityId || null, 
                 comp.componentName || null, 
@@ -87,7 +88,9 @@ class ComponentApiModel {
                 comp.propertyFormula || null,
                 comp.propertyType || null,
                 comp.attributes || null,
-                String(!!comp.bindingToList)
+                String(!!comp.bindingToList),
+                comp.key||null,
+                comp.entityKey||null
             ]);
             comp.id = newEntry.ID;
             return comp;
@@ -103,13 +106,15 @@ class ComponentApiModel {
             db.execute(`
                 UPDATE COMPONENTS C SET
                     C.ID_ENTITY = ?, C.COMPONENT_NAME = ?, C.COMPONENT_DESCRIPTION = ?, C.PROPERTY_NAME = ?, C.PROPERTY_DESCRIPTION = ?,
-                    C.PROPERTY_VALUE = ?, C.PROPERTY_FORMULA = ?, C.PROPERTY_TYPE = ?, C.ATTRIBUTES = ?, C.BINDING_TO_LIST = ?
+                    C.PROPERTY_VALUE = ?, C.PROPERTY_FORMULA = ?, C.PROPERTY_TYPE = ?, C.ATTRIBUTES = ?, C.BINDING_TO_LIST = ?,
+                    C.KEY = ?, C.ENTITY_KEY = ?
                 WHERE C.ID = ?
             `,
             [
                 comp.entityId || null, comp.componentName || null, comp.componentDescription || null, comp.propertyName || null,
                 comp.propertyDescription || null, comp.propertyValue ? String(comp.propertyValue) : null,
                 comp.propertyFormula || null, comp.propertyType || null, comp.attributes || null, String(!!comp.bindingToList),
+                comp.key || null, comp.entityKey || null,
                 comp.id || null
             ]);
             return comp;
@@ -117,6 +122,7 @@ class ComponentApiModel {
             throw e;
         }
     }
+
     /** Получить все шаблоны комонентов. */
     async getSamples() {
         try {
@@ -127,12 +133,23 @@ class ComponentApiModel {
             throw e;
         }
     }
+    
     /** Получаем шаблон компонента по имени. */
     async getSampleToName<T extends string = EntityComponentNames>(componentName: T): Promise<ApiComponent[]> {
         try {
             const db = new FirebirdAdapter();
             const result = await db.executeRequest<DbComponent>('SELECT * FROM COMPONENTS C WHERE C.ID_ENTITY IS NULL AND C.COMPONENT_NAME = ?', [componentName]);
             return ComponentApiModel.convertDbDataToObject(result);
+        } catch (e) {
+            throw e;
+        }
+    }
+
+    public async deleteComponentToKey (key: string): Promise<string | null> {
+        try {
+            const db = new FirebirdNativeAdapter();
+            const deletedKey = await db.executeAndReturning<{ KEY: string | null }>(`DELETE FROM COMPONENTS E WHERE E."KEY" = ? RETURNING "KEY"`, [key]);
+            return deletedKey.KEY;
         } catch (e) {
             throw e;
         }
@@ -186,7 +203,9 @@ class ComponentApiModel {
                     propertyFormula: d.PROPERTY_FORMULA || undefined,
                     propertyType: d.PROPERTY_TYPE as 'string' | 'number' | 'date' || undefined,
                     attributes: d.ATTRIBUTES || undefined,
-                    bindingToList: d.BINDING_TO_LIST || undefined
+                    bindingToList: d.BINDING_TO_LIST || undefined,
+                    key: d.KEY,
+                    entityKey: d.ENTITY_KEY || undefined
                 }
                 return component;
             })
