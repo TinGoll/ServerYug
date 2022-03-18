@@ -78,7 +78,7 @@ const methods = ['connection', 'close', 'update', 'get', 'post', 'delete', 'erro
 
 /** Массив POST actions */
 type PostActions = typeof postActionTypes[number]
-const postActionTypes = ['/add-engine-object',] as const
+const postActionTypes = ['/add-engine-object', '/registration-object'] as const
 /****************************************************** */
 
 

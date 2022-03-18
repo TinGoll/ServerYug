@@ -326,8 +326,8 @@ const getSampleForOrder = async (
     try {
       let sampleName: any;
 
+      //const pathSample = `${"/".match(/\//)}${"/".match(/\//)}192.168.2.101${"/".match(/\//)}Archive${"/".match(/\//)}Work${"/".match(/\//)}Заказы${"/".match(/\//)}${date.getFullYear()}${"/".match(/\//)}${month}${"/".match(/\//)}${id}${"/".match(/\//)}${dirSample}${"/".match(/\//)}`;
       const pathSample = `/mnt/2T/Archive/Work/Заказы/${date.getFullYear()}/${month}/${id}/${dirSample}/`;
-
       const files = fs.readdirSync(pathSample);
       [sampleName] = files;
       if (!sampleName) return res.sendFile(getdefaultSample());
@@ -336,6 +336,7 @@ const getSampleForOrder = async (
       return res.sendFile(getdefaultSample());
     }
   } catch (e) {
+    console.log(e);
     next(e);
   }
 };

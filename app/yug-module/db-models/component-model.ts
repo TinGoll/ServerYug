@@ -1,6 +1,4 @@
-import { toInteger } from "lodash";
 import { ApiComponent } from "yug-entity-system";
-import { FirebirdYugAdapter } from "../../dataBase/adapters/FirebirdAdapter";
 import FirebirdAdapter from "../data-base/adapters/FirebirdAdapter";
 import FirebirdNativeAdapter from "../data-base/adapters/FirebirdNativeAdapter";
 import { ISQLAdapter } from "../data-base/adapters/ISQLAdapter";
@@ -148,7 +146,10 @@ class ComponentApiModel {
     public async deleteComponentToKey (key: string): Promise<string | null> {
         try {
             const db = new FirebirdNativeAdapter();
+            console.log(key);
+            
             const deletedKey = await db.executeAndReturning<{ KEY: string | null }>(`DELETE FROM COMPONENTS E WHERE E."KEY" = ? RETURNING "KEY"`, [key]);
+            console.log(deletedKey);
             return deletedKey.KEY;
         } catch (e) {
             throw e;

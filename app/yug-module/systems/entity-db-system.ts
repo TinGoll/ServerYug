@@ -273,6 +273,4 @@ interface ComponentDb {
     ENTITY_KEY: string | null;
 }
 
-
-
-export default { saveEntities, getEntitySamples}
+export default { saveEntities, getEntitySamples, deleteEntityToKey}

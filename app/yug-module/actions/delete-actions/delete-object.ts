@@ -11,10 +11,11 @@ export const deleteObject = async({ ws, service, msg }: YugWebsocketAction<Delet
     try {
         const key = msg.data.key || '';
         const type: KeyType = <KeyType> key.split(':')[0];
+
         let deletedKey;
         switch (type) {
             case 'cmp':
-                const deletedComponentKey = await componentModel.deleteComponentToKey(key)
+                const deletedComponentKey = await componentModel.deleteComponentToKey(key)                
                 deletedKey = deletedComponentKey;
                 break;
             case 'ent':
@@ -38,6 +39,7 @@ export const deleteObject = async({ ws, service, msg }: YugWebsocketAction<Delet
             service.sender<ErrorSocketMessage>(ws, {
                 method: 'error',
                 message: `${type === 'ent' ? 'Объект' : 'Компонент'} не найден в базе данных`,
+                headers: msg.headers,
                 errors: []
             });
         }
