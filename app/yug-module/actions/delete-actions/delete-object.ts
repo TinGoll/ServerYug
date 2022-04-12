@@ -1,16 +1,24 @@
-import { KeyType } from "yug-entity-system";
+import createEngine from "yug-entity-system";
 import componentModel from "../../db-models/component-model";
-import { deleteEntityToKey } from "../../systems/entity-db-system";
+import { deleteEntityToKey, getEntityToKey } from "../../systems/entity-db-system";
 import { DeleteSocketMessage, ErrorSocketMessage, SuccessSocketMessage } from "../../types/socket-message-types";
 import { YugWebsocketAction } from "../../types/socket-types";
+import entityDbSysytem from "../../systems/entity-db-system";
+
 
 /**
  * Удаление объекта из базы данных
  */
 export const deleteObject = async({ ws, service, msg }: YugWebsocketAction<DeleteSocketMessage>) => {
     try {
+        const engine = createEngine();
+        engine.clearEntity();
         const key = msg.data.key || '';
-        const type: KeyType = <KeyType> key.split(':')[0];
+        
+        //const entity = await getEntityToKey(key); // Получаем удаляемую сущность.
+ 
+        if (!key) throw new Error("Не указан ключ, или не корректно сформирован пакет");
+        const type: 'cmp' | 'ent' = <'cmp' | 'ent'> key.split(':')[0];
 
         let deletedKey;
         switch (type) {
@@ -28,6 +36,7 @@ export const deleteObject = async({ ws, service, msg }: YugWebsocketAction<Delet
                 deletedKey = spareDeletedComponentKey || spareDeletedEntityKey;
                 break;
         }
+
         if (deletedKey) {
             service.sender<SuccessSocketMessage<{key: string}>>(ws, {
                 method:'success',
@@ -43,6 +52,34 @@ export const deleteObject = async({ ws, service, msg }: YugWebsocketAction<Delet
                 errors: []
             });
         }
+
+        /** Широковещательная рассылка */
+        (async function () {
+            if (type === 'ent') {
+                const samples = await entityDbSysytem.getEntitySamples();
+                const entitySamples = engine.loadEntities(samples || []);
+                const entities = entitySamples;
+                //const entities = entitySamples.map(e => e.assemble())
+
+                service.broadcastsystem.broadcast(ws, {
+                    method: 'get',
+                    action: '/sample-entities',
+                    headers: msg.headers,
+                    data: entities
+                });
+            }
+
+            if (type === 'cmp') {
+                const sampleComponents = await componentModel.getSamples();
+                const components = sampleComponents;
+                service.broadcastsystem.broadcast(ws, {
+                    method: 'get',
+                    action: '/sample-components',
+                    headers: msg.headers,
+                    data: { components }
+                });
+            }
+        })();
 
     } catch (e) {
         service.sendError(ws, e, msg.headers)

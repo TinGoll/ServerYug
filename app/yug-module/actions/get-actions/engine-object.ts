@@ -1,25 +1,23 @@
-import Engine from "yug-entity-system";
-import { ApiEntity, Components } from "yug-entity-system/dist/types/entity-types";
+import Engine, { ApiComponent, ApiEntity, Entity } from "yug-entity-system";
 import componentModel from "../../db-models/component-model";
-import { GetSocketMessage } from "../../types/socket-message-types";
+import { GetSocketMessage, SuccessSocketMessage } from "../../types/socket-message-types";
 import { YugWebsocketAction } from "../../types/socket-types";
-import entityDbSysytem from "../../systems/entity-db-system";
+import entityDbSysytem, { getEntityToKey, getGrandfather } from "../../systems/entity-db-system";
+import createEngine from "yug-entity-system";
 
 /** Получение шаблонов компонентов */
 export const getComponentSamples = async ({ ws, service, msg }: YugWebsocketAction<GetSocketMessage>) => {
     try {
         const samples = await componentModel.getSamples();
-        const engine = new Engine();
-        const creator = engine.creator(); 
-        creator.loadTemplateComponents(samples);
-        const components =  creator.getComponents();
-        const objectComponents = creator.componentConverterArrayToObject(components)
-        service.sender<GetSocketMessage<Components>>(ws, {
+        const components = samples;
+       
+        service.sender < GetSocketMessage < {components: ApiComponent[]}>>(ws, {
             method: 'get',
             action: '/sample-components',
             headers: msg.headers,
-            data: objectComponents
+            data: {components}
         })
+        
     } catch (e) {
         service.sendError(ws, e);
     }
@@ -28,28 +26,58 @@ export const getComponentSamples = async ({ ws, service, msg }: YugWebsocketActi
 /** Получение шаблонов компонентов */
 export const getEntitySamples = async ({ ws, service, msg }: YugWebsocketAction<GetSocketMessage>) => {
     try {
-        const samples = await entityDbSysytem.getEntitySamples();
-        const entities = entityBuild(samples)
-        //console.log(JSON.stringify(entities, null, 5));
-        service.sender<GetSocketMessage<Entities[]>>(ws, {
+        const engine = createEngine();
+        engine.clearEntity();
+        const samples = await entityDbSysytem.getEntitySamples();   
+
+        //const entitySamples = engine.loadAndReturning(samples||[]);
+
+        //const entities = entitySamples.map(e => e.assemble())
+        const entities = engine.loadEntities(samples || []);
+        service.sender<GetSocketMessage<ApiEntity[]>>(ws, {
             method: 'get',
             action: '/sample-entities',
             headers: msg.headers,
             data: entities
-        })
-
+        });
+        engine.clearEntity();
     } catch (e) {
         service.sendError(ws, e);
     }
 }
-/** Временно */
-const entityBuild = (apiEnts: ApiEntity[]): Entities[] => {
-    const arr: Entities[] = [];
-    const parents = apiEnts.filter(p => !p.parentKey);
-    for (const parent of parents) {
-        arr.push(entityConvert(parent, apiEnts))
+
+/** Получение шаблонов компонентов */
+export const getEntityPreparationData= async ({ ws, service, msg }: YugWebsocketAction<GetSocketMessage>) => {
+    try {
+        let fatherKey: string | undefined = undefined;
+        const engine = createEngine();
+        engine.clearEntity();
+
+        const grandfatherApi = await getGrandfather(msg.data.key);
+        const componentKey = msg.data.componentKey;
+        if (!componentKey) throw new Error("Не задан ключ компонента")
+
+        if (grandfatherApi) {
+            fatherKey = grandfatherApi.key;
+        }
+        const apiEntity = await getEntityToKey(fatherKey || msg.data.key); //
+        if (!apiEntity) throw new Error("Сушность не найдена в базе данных");
+
+        const [entity] =  engine.loadAndReturning(apiEntity);
+        const preparationData = entity.getPreparationData(componentKey) ;
+
+        service.sender<GetSocketMessage>(ws, {
+            method: 'get',
+            action:  '/formula-preparation-data',
+            headers: msg.headers,
+            data: {
+                ...msg.data,
+                preparationData,
+            }
+        });
+    } catch (e) {
+        service.sendError(ws, e);
     }
-    return arr;
 }
 
 const entityConvert = (entity: ApiEntity, arr: ApiEntity[] = []): Entities => {
@@ -59,7 +87,6 @@ const entityConvert = (entity: ApiEntity, arr: ApiEntity[] = []): Entities => {
         const ech = entityConvert(ch, arr);
         echild.push(ech)
     }
-    
     return {
         ...entity,
         childEntities: [...echild]

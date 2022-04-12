@@ -36,8 +36,8 @@ const getAllOrders = async (
     let options: QueryOptions = {
       ...ordersQuery.getdefaultOptions("get_orders"),
     };
-    const page = req.query._page as number | undefined;
-    const limit = req.query._limit as number | undefined;
+    const page = Number(req.query._page);
+    const limit = Number(req.query._limit);
     const filter = req.query._filter as string | undefined;
     const sort = req.query._sort as string | undefined;
 
@@ -321,7 +321,7 @@ const getSampleForOrder = async (
       parts[1] - 1,
       parts[0]
     );
-    let month = date.toLocaleString("default", { month: "long" });
+    let month = date.toLocaleString('ru', { month: 'long' });
     month = month[0].toUpperCase() + month.slice(1);
     try {
       let sampleName: any;
@@ -331,6 +331,7 @@ const getSampleForOrder = async (
       const files = fs.readdirSync(pathSample);
       [sampleName] = files;
       if (!sampleName) return res.sendFile(getdefaultSample());
+
       return res.sendFile(pathSample + sampleName);
     } catch (error) {
       return res.sendFile(getdefaultSample());

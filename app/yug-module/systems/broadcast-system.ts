@@ -1,6 +1,6 @@
 import { Server } from "ws";
 import { aWss } from "../../..";
-import { CloseSocketMessage, ConnectionSocketMessage, SocketMessage } from "../types/socket-message-types";
+import { CloseSocketMessage, ConnectionSocketMessage, GetSocketMessage, SocketMessage } from "../types/socket-message-types";
 import { YugWebsocket } from "../types/socket-types";
 
 export class BroadcastSystem {
@@ -17,6 +17,7 @@ export class BroadcastSystem {
 
     public broadcast(ws: YugWebsocket, msg: ConnectionSocketMessage): void;
     public broadcast(ws: YugWebsocket, msg: CloseSocketMessage): void;
+    public broadcast(ws: YugWebsocket, msg: GetSocketMessage): void;
     public broadcast(ws: YugWebsocket, msg: SocketMessage) {
         try {
             const message: string = JSON.stringify(msg);

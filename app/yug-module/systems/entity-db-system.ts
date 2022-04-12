@@ -1,7 +1,19 @@
-import { ApiComponent, ApiEntity } from "yug-entity-system";
-import { ApiOptionsEntity } from "yug-entity-system/dist/types/entity-types";
+import createEngine, { ApiEntity, Engine, Entity, ApiComponent } from "yug-entity-system";
 import FirebirdNativeAdapter from "../data-base/adapters/FirebirdNativeAdapter";
+import databaseQuery from "../utils/db-query";
 
+/** Возвращает одну сущность, которая являеться праотцом сущности. */
+export const getGrandfather = async (key: string): Promise<ApiEntity | null> => {
+    try {
+        const db = new FirebirdNativeAdapter();
+        const result = await db.executeRequest<EntityView>(databaseQuery('find grandfather'), [key]);
+        if (!result.length) return null;
+        const [grandfather] =  convertEntityViewToApi(result);
+        return grandfather;
+    } catch (e) {
+        throw e;
+    }
+}
 
 export const deleteEntityToKey = async (key: string): Promise<string | null> => {
     try {
@@ -12,11 +24,100 @@ export const deleteEntityToKey = async (key: string): Promise<string | null> => 
         throw e;
     }
 }
+export const deleteComponentsToId= async (id: number): Promise<void> => {
+    try {
+        const db = new FirebirdNativeAdapter();
+        await db.execute(`DELETE FROM COMPONENTS C WHERE C.ID_ENTITY = ?`, [id]);
+    } catch (e) {
+        throw e;
+    }
+}
+
+export const deleteChildsToParentId = async (id: number): Promise<void> => {
+    try {
+        const db = new FirebirdNativeAdapter();
+        await db.execute(`DELETE FROM ENTITIES E WHERE E.ID_PARENT = ?`, [Number(id)])
+    } catch (e) {
+        throw e;
+    }
+}
+
+/** Получение сущности, а так же её дочерних сущностей и компонентов по ключу  */
+export const getEntityToKey = async (key: string): Promise<ApiEntity[]> => {
+    const db = new FirebirdNativeAdapter();
+    const attachment = await db.connect();
+    const transaction = await attachment.startTransaction();
+    try {
+        const resSet = await attachment.executeQuery(transaction, databaseQuery('get entity to key'), [key]);
+        const result = await resSet.fetchAsObject<EntityView>();
+        await resSet.close();
+        await transaction.commit();
+        return convertEntityViewToApi(result);
+    } catch (e) {
+        console.log(e);
+        await transaction.rollback()
+        throw e;
+    }
+}
+/**
+ * Конвертирование обекта представления в массив сущностей.
+ * @param data EntityView[] - объект представления из БД
+ * @returns массив сущностей.
+ */
+const convertEntityViewToApi = (data: EntityView[]): ApiEntity[] => {
+    const ids = [...new Set(data.map(e => e.ID))];
+    const entities: ApiEntity[] = [];
+    for (const id of ids) {
+        const vEnt: EntityDb | undefined = data.find(d => d.ID === id);
+        if (!vEnt) continue;
+        const vComps: ComponentDb[] = data.filter(d => d.ID_ENTITY === id).map(d => {
+           const { 
+               ID_COMPONENT: ID, ID_ENTITY, COMPONENT_NAME, 
+               COMPONENT_DESCRIPTION, PROPERTY_NAME, 
+               PROPERTY_DESCRIPTION, PROPERTY_FORMULA, PROPERTY_TYPE,
+               PROPERTY_VALUE, ATTRIBUTES, BINDING_TO_LIST, COMPONENT_KEY: KEY, ENTITY_KEY } = d;
+            return {
+                ID, ID_ENTITY, COMPONENT_NAME,
+                COMPONENT_DESCRIPTION, PROPERTY_NAME,
+                PROPERTY_DESCRIPTION, PROPERTY_FORMULA, PROPERTY_TYPE,
+                PROPERTY_VALUE, ATTRIBUTES, BINDING_TO_LIST, KEY, ENTITY_KEY
+            }
+        });
+        entities.push(convertEntityDbToApi(vEnt, vComps))
+    }
+    return entities;
+}
 
 /** Сохранение родительской и всех дочерних сущностей */
-export const saveEntities = async (entities: ApiEntity[]): Promise<ApiEntity[]> => {
+export const saveEntities = async (entities: ApiEntity[]=[]): Promise<ApiEntity[]> => {
     try {
-        const disassembleEntity = disassemble(entities);
+        const fathers = entities.filter((e, i, arr )=> {
+            if (!e.parentKey) return true;
+            const index = arr.findIndex(f => f.key === e.parentKey);
+            return index === -1;
+        })
+        
+        if (fathers.length) {
+            const engine = createEngine();
+            const apiSamples = await getEntitySamples();
+            engine.clearEntity();
+            const samples = engine.loadAndReturning(apiSamples);
+
+            for (const father of fathers) {
+                const sample = samples.find(s => s.getKey() === father.key);
+                if (sample) {
+                    const index = entities.findIndex(e => e.key === father.key);
+                    if (index >= 0) {
+                        entities[index].id = sample.getId();
+                        entities[index].key = sample.getKey();
+                    }
+                   // await deleteChildsToParentId(father.id);
+                   // await deleteComponentsToId(father.id);
+                }
+            }
+        }
+        //const disassembleEntity = disassemble(entities); - уже разобраны
+        const disassembleEntity = new Set(entities)
         const resultEntities = await writeEntityToBatabase(disassembleEntity);
         const disassembleComponents = disassembleComponent(resultEntities);
         await writeComponentToBatabase(disassembleComponents);
@@ -52,9 +153,23 @@ export const disassembleComponent = (entities: Set<ApiEntity>): Set<ApiComponent
 }
 /** Разбор и подготовка всех сущностей к сохранению */
 export const disassemble = (entities: ApiEntity[]): Set<ApiEntity> => {
-    const set = new Set<ApiEntity>();
-    for (const entity of entities) { set.add(entity);}
+    const disassembleEntities = getAllChildren(<ApiEntity[]>entities);
+    const set = new Set<ApiEntity>((<ApiEntity[]>disassembleEntities));
     return set;
+}
+
+const getAllChildren = (entities: ApiEntity[] = []): ApiEntity[] => {
+    const tempArr: ApiEntity[] = [];
+    for (const entity of entities) {
+        const { id, key, category, components, dateCreation, dateUpdate, 
+            name, note, parentId, parentKey, sampleId } = <ApiEntity>entity;
+        const { children } = (<ApiEntity>entity);
+        tempArr.push({ id, key, category, components, dateCreation, dateUpdate, 
+            name, note, parentId, parentKey, sampleId});
+        const disassembleChildren = getAllChildren(children);
+        tempArr.push(...<ApiEntity[]>disassembleChildren);
+    }
+    return <ApiEntity[]> tempArr;
 }
 
 /** Запись компонентв в базу данных  */
@@ -63,6 +178,7 @@ const writeComponentToBatabase = async (disassembleComponents: Set<ApiComponent>
     const attachment = await db.connect();
     const transaction = await attachment.startTransaction();
     try {
+
         const savable = await attachment.prepare(transaction, `
          INSERT INTO COMPONENTS (
             ID_ENTITY, COMPONENT_NAME, COMPONENT_DESCRIPTION, PROPERTY_NAME, 
@@ -105,7 +221,6 @@ const writeComponentToBatabase = async (disassembleComponents: Set<ApiComponent>
         return disassembleComponents;
     } catch (e) {
         console.log(e);
-        
         await transaction.rollback()
         throw e;
     }
@@ -130,6 +245,7 @@ const writeEntityToBatabase = async (disassembleEntity: Set<ApiEntity>) => {
                     E.PARENT_KEY = ?,
                     E.DATE_UPDATE = CURRENT_TIMESTAMP
                 WHERE E.ID = ?`);
+        
         for (const entity of disassembleEntity) {
             const signature = entity;
             const father = findFather(entity.parentKey, disassembleEntity);
@@ -230,7 +346,6 @@ const convertEntityDbToApi = (data: EntityDb, comps: ComponentDb[]): ApiEntity =
     const components = comps.filter(c => c.ID_ENTITY === data.ID).map(c => convertComponentsDbToApi(c));
     return {
         id: data.ID,
-        typeId: undefined,
         category: data.CATEGORY || undefined,
         parentId: data.ID_PARENT || undefined,
         sampleId: data.ID_SAMPLE || undefined,
@@ -239,7 +354,7 @@ const convertEntityDbToApi = (data: EntityDb, comps: ComponentDb[]): ApiEntity =
         dateCreation: data.DATE_CREATION,
         dateUpdate: data.DATE_UPDATE,
         key: data.KEY,
-        parentKey: data.PARENT_KEY,
+        parentKey: data.PARENT_KEY||undefined,
         components: components
     }
 }
@@ -271,6 +386,32 @@ interface ComponentDb {
     BINDING_TO_LIST        : boolean
     KEY: string;
     ENTITY_KEY: string | null;
+}
+
+interface EntityView {
+    ID: number;
+    ID_PARENT: number;
+    ID_SAMPLE: number;
+    CATEGORY: string;
+    NAME: string;
+    NOTE: string;
+    DATE_CREATION: Date;
+    DATE_UPDATE: Date;
+    KEY: string;
+    PARENT_KEY: string;
+    ID_COMPONENT: number;
+    ID_ENTITY: number;
+    COMPONENT_NAME: string;
+    COMPONENT_DESCRIPTION: string;
+    PROPERTY_NAME: string;
+    PROPERTY_DESCRIPTION: string;
+    PROPERTY_VALUE: string;
+    PROPERTY_FORMULA: string;
+    PROPERTY_TYPE: string;
+    ATTRIBUTES: string;
+    BINDING_TO_LIST: boolean;
+    COMPONENT_KEY: string;
+    ENTITY_KEY: string;
 }
 
 export default { saveEntities, getEntitySamples, deleteEntityToKey}

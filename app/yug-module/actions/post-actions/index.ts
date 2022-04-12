@@ -3,7 +3,7 @@ import componentModel from "../../db-models/component-model";
 import { SocketServive } from "../../services/socket-service";
 import { PostSocketMessage } from "../../types/socket-message-types";
 import { YugWebsocket } from "../../types/socket-types";
-import { addEngineObject, registrationObject } from "./engine-object";
+import { addEngineObject, constructionObject, registrationObject } from "./engine-object";
 
 
 const postActions = async (ws: YugWebsocket, service: SocketServive, msg: PostSocketMessage) => {
@@ -14,6 +14,9 @@ const postActions = async (ws: YugWebsocket, service: SocketServive, msg: PostSo
                 break;
             case '/registration-object':
                 registrationObject({ ws, service, msg }); // Добавление нового комопнента или номенклатуры.
+                break;
+            case '/construction-object':
+                constructionObject({ ws, service, msg }); // Добавление нового комопнента или номенклатуры.
                 break;
             default:
                 break;

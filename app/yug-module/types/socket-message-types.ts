@@ -78,13 +78,13 @@ const methods = ['connection', 'close', 'update', 'get', 'post', 'delete', 'erro
 
 /** Массив POST actions */
 type PostActions = typeof postActionTypes[number]
-const postActionTypes = ['/add-engine-object', '/registration-object'] as const
+const postActionTypes = ['/add-engine-object', '/registration-object', '/construction-object'] as const
 /****************************************************** */
 
 
 /** Массив POST actions */
 type GetActions = typeof getActionTypes[number]
-const getActionTypes = ['/sample-components', '/sample-entities'] as const
+const getActionTypes = ['/sample-components', '/sample-entities', '/formula-preparation-data'] as const
 /****************************************************** */
 
 /** Массив POST actions */

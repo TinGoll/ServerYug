@@ -1,5 +1,4 @@
 import { ApiEntity } from "yug-entity-system";
-import { ApiOptionsEntity } from "yug-entity-system/dist/types/entity-types";
 import { FirebirdYugAdapter } from "../../dataBase/adapters/FirebirdAdapter";
 import ApiError from "../../exceptions/ApiError";
 import FirebirdAdapter from "../data-base/adapters/FirebirdAdapter";
@@ -20,7 +19,7 @@ class EntityApiModel {
     ];
 
     /** Сохранение сущности, компонентов сущности, дочерних сущностей и компонентов дочерних сущностей. */
-    async save(entity: ApiOptionsEntity, db: ISQLAdapter = new FirebirdAdapter()): Promise<ApiOptionsEntity> {
+    async save(entity: ApiEntity, db: ISQLAdapter = new FirebirdAdapter()): Promise<ApiEntity> {
         try {
             const ent = {...entity};
             if (!ent) throw ApiError.BadRequest("Неверная сигнатура сущности.");

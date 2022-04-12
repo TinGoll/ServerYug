@@ -1,0 +1,11 @@
+ssh serg@SERV-D
+password
+sudo su
+cd /mnt/2T/Archive/Work/WebServer/ServerYug
+docker build . -t  serg/server-yug:v<Номер версии>
+docker images
+docker ps
+docker stop ID
+docker rm ID
+docker run --name serv --restart=always -d -p 3131:3131 serg/server-yug:v<Номер версии>
+docker run --name serv --restart=always -d -p 3131:3131 -v /mnt/2T/Archive/Work/Заказы/:/mnt/2T/Archive/Work/Заказы/  serg/server-yug:v<Номер версии>
