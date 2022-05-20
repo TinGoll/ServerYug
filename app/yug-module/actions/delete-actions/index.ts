@@ -1,10 +1,10 @@
-import { SocketServive } from "../../services/socket-service";
+import { SocketService } from "../../services/socket-service";
 import { DeleteSocketMessage } from "../../types/socket-message-types";
 import { YugWebsocket } from "../../types/socket-types";
 import { deleteObject } from "./delete-object";
 
 
-const deleteActions = async (ws: YugWebsocket, service: SocketServive, msg: DeleteSocketMessage) => {
+const deleteActions = async (ws: YugWebsocket, service: SocketService, msg: DeleteSocketMessage) => {
     try {
         switch (msg.action) {
             case '/delete-object':

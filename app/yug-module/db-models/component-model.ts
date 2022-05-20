@@ -4,7 +4,7 @@ import FirebirdNativeAdapter from "../data-base/adapters/FirebirdNativeAdapter";
 import { ISQLAdapter } from "../data-base/adapters/ISQLAdapter";
 import { DbComponent, EntityComponentNames } from "../types/components/component-types";
 
-class ComponentApiModel {
+export class ComponentApiModel {
     /** Соответсвие ключей базы данных и интерфейса комопнентов Api */
     private static keys: [keyof DbComponent, keyof ApiComponent][] = [
         ['ID', 'id'],
@@ -69,13 +69,14 @@ class ComponentApiModel {
      */
     private async addComponent(comp: ApiComponent, db: ISQLAdapter = new FirebirdAdapter()): Promise<ApiComponent> {
         try {
+            const formulaImportBlob = comp.formulaImport ? Buffer.alloc(comp.formulaImport?.length || 0, comp.formulaImport) : null;
             const newEntry = await db.executeAndReturning<{ID: number}>(`
                 INSERT INTO COMPONENTS (
                     ID_ENTITY, COMPONENT_NAME, COMPONENT_DESCRIPTION, PROPERTY_NAME, 
                     PROPERTY_DESCRIPTION, PROPERTY_VALUE, PROPERTY_FORMULA, PROPERTY_TYPE,
-                    ATTRIBUTES, BINDING_TO_LIST, KEY, ENTITY_KEY
+                    ATTRIBUTES, BINDING_TO_LIST, KEY, ENTITY_KEY, FORMULA_IMPORT
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING ID;`, 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING ID;`, 
             [
                 comp.entityId || null, 
                 comp.componentName || null, 
@@ -88,7 +89,8 @@ class ComponentApiModel {
                 comp.attributes || null,
                 String(!!comp.bindingToList),
                 comp.key||null,
-                comp.entityKey||null
+                comp.entityKey||null,
+                formulaImportBlob
             ]);
             comp.id = newEntry.ID;
             return comp;
@@ -105,14 +107,14 @@ class ComponentApiModel {
                 UPDATE COMPONENTS C SET
                     C.ID_ENTITY = ?, C.COMPONENT_NAME = ?, C.COMPONENT_DESCRIPTION = ?, C.PROPERTY_NAME = ?, C.PROPERTY_DESCRIPTION = ?,
                     C.PROPERTY_VALUE = ?, C.PROPERTY_FORMULA = ?, C.PROPERTY_TYPE = ?, C.ATTRIBUTES = ?, C.BINDING_TO_LIST = ?,
-                    C.KEY = ?, C.ENTITY_KEY = ?
+                    C.KEY = ?, C.ENTITY_KEY = ?, C.FORMULA_IMPORT = ?
                 WHERE C.ID = ?
             `,
             [
                 comp.entityId || null, comp.componentName || null, comp.componentDescription || null, comp.propertyName || null,
                 comp.propertyDescription || null, comp.propertyValue ? String(comp.propertyValue) : null,
                 comp.propertyFormula || null, comp.propertyType || null, comp.attributes || null, String(!!comp.bindingToList),
-                comp.key || null, comp.entityKey || null,
+                comp.key || null, comp.entityKey || null, comp.formulaImport ? Buffer.alloc(comp.formulaImport?.length || 0, comp.formulaImport) : null, ,
                 comp.id || null
             ]);
             return comp;
@@ -128,6 +130,7 @@ class ComponentApiModel {
             const result = await db.executeRequest<DbComponent>(`SELECT * FROM COMPONENTS C WHERE C.ID_ENTITY IS NULL`);
             return ComponentApiModel.convertDbDataToObject(result);
         } catch (e) {
+            console.log(e);
             throw e;
         }
     }
@@ -187,7 +190,7 @@ class ComponentApiModel {
         }
     }
 
-    private static convertDbDataToObject (data: DbComponent[]): ApiComponent[] {
+    public static convertDbDataToObject (data: DbComponent[]): ApiComponent[] {
         try {
             return data.map(d => {
                 const component: ApiComponent = {
@@ -203,7 +206,8 @@ class ComponentApiModel {
                     attributes: d.ATTRIBUTES || undefined,
                     bindingToList: d.BINDING_TO_LIST || undefined,
                     key: d.KEY,
-                    entityKey: d.ENTITY_KEY || undefined
+                    entityKey: d.ENTITY_KEY || undefined,
+                    formulaImport: d.FORMULA_IMPORT || undefined,
                 }
                 return component;
             })

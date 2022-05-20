@@ -96,8 +96,6 @@ router.post(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { userName, password, barcode } = req.body;
-      console.log(req.body);
-
       let user: User | null;
       if (barcode) {
         const query = `

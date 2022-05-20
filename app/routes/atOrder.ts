@@ -367,7 +367,10 @@ router.patch(
 
 
 async function queueTransferOrders(data: ITransferOrders) {
-  return queue.add(() => atOrderService.transferOrders(data));
+    return queue.add(() => {
+        console.log("queueTransferOrders - 2");
+        atOrderService.transferOrders(data)
+    });
 }
 
 router.post(
@@ -377,7 +380,7 @@ router.post(
         check('idAccepted', 'Принимающий участок не может быть пустым.').exists()
     ],
     async (req: Request, res: Response, next: NextFunction) => {
-        try {   
+        try {               
             const data: ITransferOrders = req.body;
             const result = await queueTransferOrders(data);
             return res.status(201).json(result)

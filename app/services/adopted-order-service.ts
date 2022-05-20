@@ -141,8 +141,6 @@ class AdoptedOrderService {
               );
 
               if (order.id == 20117) {
-                console.log(transfered);
-                
                 console.log("start", transfered?.transferDate.toLocaleString());
                 console.log("end", order.transferDate.toLocaleString());
                 console.log(
@@ -372,8 +370,6 @@ class AdoptedOrderService {
     }
   }
   private getWorkTime(startDate?: Date, endDate?: Date): number {
-    //console.log(startDate, endDate);
-
     if (!startDate || !endDate) return 0;
     const oneDayMS: number = 24 * 60 * 60 * 1000;
     const nowMS: number = endDate.valueOf();
@@ -391,8 +387,6 @@ class AdoptedOrderService {
     if (!(new Date(nowMS).getDay() % 6 == 0)) workDay--;
     else weekends--;
     const res = workDay * oneDayMS + (nowMS - lastDay.valueOf());
-    //console.log(res);
-
     return res < 0 ? 0 : res;
   }
 }

@@ -14,7 +14,10 @@ class YugSocketController {
                 isAlive: true,
                 isAuth: false,
                 key: Date.now().toString(16),
-                ip
+                ip,
+                roomData: {
+                    roomKey: null
+                }
             }
             ws.data = data;
             socketService.registration(ws);

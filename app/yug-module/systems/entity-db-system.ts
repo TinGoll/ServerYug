@@ -1,5 +1,6 @@
 import createEngine, { ApiEntity, Engine, Entity, ApiComponent } from "yug-entity-system";
 import FirebirdNativeAdapter from "../data-base/adapters/FirebirdNativeAdapter";
+import { Blob } from 'node-firebird-driver-native';
 import databaseQuery from "../utils/db-query";
 
 /** Возвращает одну сущность, которая являеться праотцом сущности. */
@@ -51,6 +52,18 @@ export const getEntityToKey = async (key: string): Promise<ApiEntity[]> => {
         const resSet = await attachment.executeQuery(transaction, databaseQuery('get entity to key'), [key]);
         const result = await resSet.fetchAsObject<EntityView>();
         await resSet.close();
+
+        /* Работа с БЛОБ
+        const blobs = result.map(r => r.FORMULA_IMPORT);
+        console.log("BLOBS", blobs.map(b => b?.isValid));
+        const valoidBlob = blobs.find(b => !!b?.isValid)!;
+        console.log("valoidBlob", valoidBlob);
+        const blobStream = await attachment.openBlob(transaction, valoidBlob);
+        const buffer = Buffer.alloc(await blobStream.length);
+        await blobStream.read(buffer);
+        await blobStream.close();
+        console.log("Расшифрованный БЛОБ", buffer.toString());
+        */
         await transaction.commit();
         return convertEntityViewToApi(result);
     } catch (e) {
@@ -75,12 +88,12 @@ const convertEntityViewToApi = (data: EntityView[]): ApiEntity[] => {
                ID_COMPONENT: ID, ID_ENTITY, COMPONENT_NAME, 
                COMPONENT_DESCRIPTION, PROPERTY_NAME, 
                PROPERTY_DESCRIPTION, PROPERTY_FORMULA, PROPERTY_TYPE,
-               PROPERTY_VALUE, ATTRIBUTES, BINDING_TO_LIST, COMPONENT_KEY: KEY, ENTITY_KEY } = d;
+               PROPERTY_VALUE, ATTRIBUTES, BINDING_TO_LIST, COMPONENT_KEY: KEY, ENTITY_KEY, FORMULA_IMPORT } = d;
             return {
                 ID, ID_ENTITY, COMPONENT_NAME,
                 COMPONENT_DESCRIPTION, PROPERTY_NAME,
                 PROPERTY_DESCRIPTION, PROPERTY_FORMULA, PROPERTY_TYPE,
-                PROPERTY_VALUE, ATTRIBUTES, BINDING_TO_LIST, KEY, ENTITY_KEY
+                PROPERTY_VALUE, ATTRIBUTES, BINDING_TO_LIST, KEY, ENTITY_KEY, FORMULA_IMPORT
             }
         });
         entities.push(convertEntityDbToApi(vEnt, vComps))
@@ -100,7 +113,7 @@ export const saveEntities = async (entities: ApiEntity[]=[]): Promise<ApiEntity[
         if (fathers.length) {
             const engine = createEngine();
             const apiSamples = await getEntitySamples();
-            engine.clearEntity();
+            engine.clearSamples();
             const samples = engine.loadAndReturning(apiSamples);
 
             for (const father of fathers) {
@@ -183,13 +196,13 @@ const writeComponentToBatabase = async (disassembleComponents: Set<ApiComponent>
          INSERT INTO COMPONENTS (
             ID_ENTITY, COMPONENT_NAME, COMPONENT_DESCRIPTION, PROPERTY_NAME, 
             PROPERTY_DESCRIPTION, PROPERTY_VALUE, PROPERTY_FORMULA, PROPERTY_TYPE,
-            ATTRIBUTES, BINDING_TO_LIST, KEY, ENTITY_KEY )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING ID;`);
+            ATTRIBUTES, BINDING_TO_LIST, KEY, ENTITY_KEY, FORMULA_IMPORT )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING ID;`);
 
         const editable = await attachment.prepare(transaction, `
             UPDATE COMPONENTS C SET
                 C.ID_ENTITY = ?, C.COMPONENT_NAME = ?, C.COMPONENT_DESCRIPTION = ?, C.PROPERTY_NAME = ?, C.PROPERTY_DESCRIPTION = ?,
-                C.PROPERTY_VALUE = ?, C.PROPERTY_FORMULA = ?, C.PROPERTY_TYPE = ?, C.ATTRIBUTES = ?, C.BINDING_TO_LIST = ?, C.KEY = ?, C.ENTITY_KEY = ?  
+                C.PROPERTY_VALUE = ?, C.PROPERTY_FORMULA = ?, C.PROPERTY_TYPE = ?, C.ATTRIBUTES = ?, C.BINDING_TO_LIST = ?, C.KEY = ?, C.ENTITY_KEY = ?, C.FORMULA_IMPORT = ?  
             WHERE C.ID = ?`);
    
 
@@ -200,7 +213,8 @@ const writeComponentToBatabase = async (disassembleComponents: Set<ApiComponent>
                         component.entityId || null, component.componentName || null, component.componentDescription || null,
                         component.propertyName || null, component.propertyDescription || null, String(component.propertyValue),
                         component.propertyFormula || null, component.propertyType || null, component.attributes || null, component.bindingToList || false,
-                        component.key || null, component.entityKey || null,
+                        component.key || null, component.entityKey || null, 
+                        component.formulaImport ? Buffer.alloc(component.formulaImport?.length || 0, component.formulaImport) : null,
                         component.id
                     ]);
             }else{
@@ -209,7 +223,8 @@ const writeComponentToBatabase = async (disassembleComponents: Set<ApiComponent>
                         component.entityId || null, component.componentName || null, component.componentDescription || null,
                         component.propertyName || null, component.propertyDescription || null, String(component.propertyValue),
                         component.propertyFormula || null, component.propertyType || null, component.attributes || null, component.bindingToList || false,
-                        component.key || null, component.entityKey || null
+                        component.key || null, component.entityKey || null, 
+                        component.formulaImport ? Buffer.alloc(component.formulaImport?.length || 0, component.formulaImport) : null,
                     ]);
                 component.id = newEntry.ID;
             }
@@ -285,6 +300,7 @@ export const getEntitySamples = async (): Promise<ApiEntity[]> => {
     const db = new FirebirdNativeAdapter();
     try {
         const dbEntities = await db.executeRequest<EntityDb>(`SELECT * FROM GET_ENTITY_SAMPLES`, []);
+        //Тут блоб уже превращен в строку , в самой процедуре GET_COMPS_TO_ID_ENTITY
         const dbComponents = await db.executeRequest<ComponentDb>(`
             EXECUTE BLOCK
             RETURNS (
@@ -295,12 +311,14 @@ export const getEntitySamples = async (): Promise<ApiEntity[]> => {
                 PROPERTY_NAME VARCHAR(512),
                 PROPERTY_DESCRIPTION VARCHAR(512),
                 PROPERTY_VALUE VARCHAR(512),
-                PROPERTY_FORMULA VARCHAR(2048),
+                PROPERTY_FORMULA VARCHAR(8000),
                 PROPERTY_TYPE VARCHAR(512),
                 ATTRIBUTES VARCHAR(512),
                 BINDING_TO_LIST BOOLEAN,
                 "KEY" VARCHAR(512),
-                ENTITY_KEY VARCHAR(512))
+                ENTITY_KEY VARCHAR(512),
+                FORMULA_IMPORT VARCHAR(8000)
+                )
             AS
             DECLARE VARIABLE CURRENT_ENTITY_ID INTEGER;
             BEGIN
@@ -311,7 +329,7 @@ export const getEntitySamples = async (): Promise<ApiEntity[]> => {
                 FOR SELECT *
                     FROM GET_COMPS_TO_ID_ENTITY(:CURRENT_ENTITY_ID)
                     INTO :ID, :ID_ENTITY, :COMPONENT_NAME, :COMPONENT_DESCRIPTION, :PROPERTY_NAME, :PROPERTY_DESCRIPTION,
-                        :PROPERTY_VALUE, :PROPERTY_FORMULA, :PROPERTY_TYPE, :ATTRIBUTES, :BINDING_TO_LIST, :"KEY", :ENTITY_KEY
+                        :PROPERTY_VALUE, :PROPERTY_FORMULA, :PROPERTY_TYPE, :ATTRIBUTES, :BINDING_TO_LIST, :"KEY", :ENTITY_KEY, :FORMULA_IMPORT
                 DO
                 SUSPEND;
             END
@@ -337,10 +355,10 @@ const convertComponentsDbToApi = (data: ComponentDb): ApiComponent => {
         propertyFormula: data.PROPERTY_FORMULA || undefined,
         propertyType: (data.PROPERTY_TYPE as any),
         attributes: data.ATTRIBUTES || undefined,
-        bindingToList: data.BINDING_TO_LIST || false
+        bindingToList: data.BINDING_TO_LIST || false,
+        formulaImport: data.FORMULA_IMPORT || undefined,
     }
 }
-
 
 const convertEntityDbToApi = (data: EntityDb, comps: ComponentDb[]): ApiEntity => {
     const components = comps.filter(c => c.ID_ENTITY === data.ID).map(c => convertComponentsDbToApi(c));
@@ -355,7 +373,7 @@ const convertEntityDbToApi = (data: EntityDb, comps: ComponentDb[]): ApiEntity =
         dateUpdate: data.DATE_UPDATE,
         key: data.KEY,
         parentKey: data.PARENT_KEY||undefined,
-        components: components
+        components: components,
     }
 }
 
@@ -381,9 +399,10 @@ interface ComponentDb {
     PROPERTY_DESCRIPTION: string;
     PROPERTY_VALUE: string | null;
     PROPERTY_FORMULA: string | null;
+    FORMULA_IMPORT: string | null;
     PROPERTY_TYPE: string;
     ATTRIBUTES: string | null;
-    BINDING_TO_LIST        : boolean
+    BINDING_TO_LIST  : boolean
     KEY: string;
     ENTITY_KEY: string | null;
 }
@@ -412,6 +431,7 @@ interface EntityView {
     BINDING_TO_LIST: boolean;
     COMPONENT_KEY: string;
     ENTITY_KEY: string;
+    FORMULA_IMPORT: string | null;
 }
 
 export default { saveEntities, getEntitySamples, deleteEntityToKey}

@@ -44,7 +44,6 @@ class ExtraDataController {
     }
     async deleteData(req: Request, res: Response, next: NextFunction) {
         try {
-            console.log('Да это он');
             const { name, data } = req.body;
             if (!name || !data)
                 throw ApiError.BadRequest(

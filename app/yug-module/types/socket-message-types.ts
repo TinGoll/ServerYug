@@ -41,9 +41,24 @@ export interface PostSocketMessage<T extends any = any, H extends object = objec
     action: PostActions;
     data: T;
 }
+
+/** * T - тип объекта data, H - тип объекта headers */
+export interface PutSocketMessage<T extends any = any, H extends object = object> extends SocketMessage<H> {
+    method: 'put';
+    action: PutActions;
+    data: T;
+}
+
 export interface DeleteSocketMessage<T extends any = { key: string }, H extends object = object> extends SocketMessage<H> {
     method: 'delete';
     action: DeleteActions;
+    data: T;
+}
+
+/** * T - тип объекта data, H - тип объекта headers */
+export interface OrderSocketMessage<T extends any = any, H extends object = object> extends SocketMessage<H> {
+    method: 'order';
+    action: OrderActions;
     data: T;
 }
 
@@ -69,22 +84,62 @@ export interface ConnectionSocketMessageToBot extends ConnectionSocketMessage {
     isBot?: boolean
 }
 /****************************************************** */
-type SocketMethods = typeof methods[number]
+export type SocketMethods = typeof methods[number]
 /****************************************************** */
 /** Массив методов. */
-const methods = ['connection', 'close', 'update', 'get', 'post', 'delete', 'error', 'info', 'success'] as const
+const methods = ['connection', 'close', 'update', 'get', 'post', 'delete', 'error', 'info', 'success', 'put', 'order'] as const
 /****************************************************** */
 
 
 /** Массив POST actions */
 type PostActions = typeof postActionTypes[number]
-const postActionTypes = ['/add-engine-object', '/registration-object', '/construction-object'] as const
+const postActionTypes = [
+    '/add-engine-object', 
+    '/registration-object', 
+    '/construction-object',
+    '/produce-entity'
+] as const
 /****************************************************** */
 
+/** Массив ORDER actions */
+type OrderActions = typeof orderActionTypes[number]
+const orderActionTypes = [
+    '/create-order',
+    '/open-order',
+    '/close-order',
+    '/add-order-element',
+    '/delete-order-element',
+    '/edit-order-element',
+    '/get-order-data',
+    '/get-current-user',
+    '/get-order-history',
+    '/get-all-orders',
+    '/get-api-directory',
+    '/get-changed-order-data',
+    '/get-sample-names',
+    '/get-api-entity-to-key',
+    '/change-entity-component',
+    '/add-property-to-element',
+    '/remove-property-from-element',
+] as const
+/****************************************************** */
 
-/** Массив POST actions */
+/** Массив PUT actions */
+type PutActions = typeof putActionTypes[number]
+const putActionTypes = [
+    '/change-entity-component',
+] as const
+/****************************************************** */
+
+/** Массив GET actions */
 type GetActions = typeof getActionTypes[number]
-const getActionTypes = ['/sample-components', '/sample-entities', '/formula-preparation-data'] as const
+const getActionTypes = [
+    '/sample-components', 
+    '/sample-entities', 
+    '/formula-preparation-data', 
+    '/get-sample-names', 
+    '/get-api-entity-to-key', 
+    '/get-entity-categories'] as const
 /****************************************************** */
 
 /** Массив POST actions */

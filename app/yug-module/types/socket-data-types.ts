@@ -6,6 +6,8 @@ export interface EngineObjectData {
     object: ApiComponent[] | ApiEntity[];
 }
 
+
+
 export interface EngineBuildtData {
     key?: string;                               // Ключ объекта (сущность или комопонент)
     object?: ApiComponent[] | ApiEntity[];      // новый объект (сущность или комопонент)

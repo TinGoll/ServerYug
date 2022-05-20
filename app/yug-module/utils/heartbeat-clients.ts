@@ -6,7 +6,12 @@ export const heartbeat = (wss: Server) => {
   const interval = setInterval(function ping() {
     const clients = wss.clients as Set<YugWebsocket>;
     clients.forEach(function each(ws) {
-      if (ws.data?.isAlive === false) return ws.terminate();
+      if (ws.data?.isAlive === false) {
+         ws.terminate();
+        console.log(ws);
+        return;
+        
+      }
       ws.data!.isAlive = false;
       ws.ping();
     });

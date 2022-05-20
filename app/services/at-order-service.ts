@@ -22,7 +22,6 @@ class AtOrderService {
 
     async transferOrders (transferOrders: ITransferOrders): Promise<{message: string, orders: ITransferOrderElement[]}> {
         try {
-            
             const db = await createItmDb();
              try {
                 const transferOrderErrors: string[] = [];
@@ -57,9 +56,6 @@ class AtOrderService {
 
                 // Деревянно, переделать
                 if (transfer?.idSector == 5 && accepted?.idSector == 24) transfer.idSector = 23;
-
-
-
                 const [dependencies, rdependencies, allDependencies] = await this.dependenciesValidator(transfer?.idSector, accepted?.idSector);
 
                 // Если в зависимости передающий этап являеться стартовым.
@@ -181,12 +177,11 @@ class AtOrderService {
                              *  Если нет работ по передаче в текущий участок, то принимаем.
                              */
                             const isTherePlans = await this.sectorValidator(transfer?.idSector!, works, allDependencies, associationNewAndOldSectors)
-                            console.log(isTherePlans);
                             
                             if (isTherePlans) {
-                                order.completed = false;
-                                order.description = `Заказ не был передан в участок ${transfer?.sector} и ${transfer?.sector} не являеться стартовым участком.`;
-                                continue;
+                               order.completed = false;
+                               order.description = `Заказ не был передан в участок ${transfer?.sector} и ${transfer?.sector} не является стартовым участком.`;
+                               continue;
                             }
                         }
                     }

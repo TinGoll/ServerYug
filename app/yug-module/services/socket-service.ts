@@ -1,15 +1,18 @@
+
 import ApiError from "../../exceptions/ApiError";
 import connectionAction from "../actions/connetc-actions";
 import deleteActions from "../actions/delete-actions";
 import getActions from "../actions/get-actions";
+import orderActions from "../actions/order-action";
 import postActions from "../actions/post-actions";
+import putActions from "../actions/put-actions";
 import { BroadcastSystem } from "../systems/broadcast-system";
-import { ConnectionSocketMessage, DeleteSocketMessage, ErrorSocketMessage, GetSocketMessage, InfoSocketMessage, PostSocketMessage, SocketMessage } from "../types/socket-message-types";
+import { ConnectionSocketMessage, DeleteSocketMessage, ErrorSocketMessage, GetSocketMessage, InfoSocketMessage, OrderSocketMessage, PostSocketMessage, PutSocketMessage, SocketMessage } from "../types/socket-message-types";
 import { YugWebsocket } from "../types/socket-types";
 import { errorMessage } from "../utils/error-messages";
 import { eventCloseMessage } from "../utils/event-close-message";
 
-export class SocketServive {
+export class SocketService {
     broadcastsystem: BroadcastSystem;
     constructor () {
         this.broadcastsystem = new BroadcastSystem();
@@ -51,6 +54,7 @@ export class SocketServive {
                 err.message = error.message;
                 err.errors = [...error.errors];
             }
+
             this.sender<ErrorSocketMessage>(ws, err);
         } catch (e) {
             console.log(e);
@@ -64,7 +68,7 @@ export class SocketServive {
         } catch (e) {console.log(e);}
     }
     /** Проверка серцебиения клиента. */
-    heartbeat(service: SocketServive) {
+    heartbeat(service: SocketService) {
         return function (this: YugWebsocket) {
             if (!this.data) {
                 this.terminate();
@@ -74,9 +78,9 @@ export class SocketServive {
         }
     }
     /** Отлавливает события, когда клиент, отключился */
-    closeHandler(service: SocketServive)  {
+    closeHandler(service: SocketService)  {
         return function (this: YugWebsocket, code: number, reason: Buffer) {
-           service.broadcastsystem.broadcast(this, {
+           service.broadcastsystem.broadcast( {
                method: "close",
                message: `${this.data?.user?.getUserName() || this.data?.key} отавлился.`,
                reason: service.getCloseEventCode(code)
@@ -85,17 +89,17 @@ export class SocketServive {
         }
     }
     /** Оталавливает события, когда клиент возвратил ошибку */
-    errorHandler (service: SocketServive) {
+    errorHandler (service: SocketService) {
         return function (this: YugWebsocket, err: Error) {
             try {
-                console.log('SocketServive ERROR', err.message);
+                console.log('SocketService ERROR', err.message);
             } catch (e) {
                 console.log(e);
             }
         }
     }
     /** Отлавливает событие, когда клиент отправил пакет. */
-    messageHandler (service: SocketServive) {
+    messageHandler (service: SocketService) {
         return function (this: YugWebsocket, message: string, isBinary: boolean) {
             try {
                 /*********************************************************************************************************************************** */
@@ -119,8 +123,14 @@ export class SocketServive {
                     case 'post':
                         postActions(this, service, <PostSocketMessage>msg);
                         break;
+                    case 'put':
+                        putActions(this, service, <PutSocketMessage>msg);
+                        break;
                     case 'get':
                         getActions(this, service, <GetSocketMessage>msg);
+                        break; 
+                    case 'order':
+                        orderActions(this, service, <OrderSocketMessage>msg);
                         break; 
                     case 'delete':
                         deleteActions(this, service, <DeleteSocketMessage>msg);
@@ -135,4 +145,4 @@ export class SocketServive {
     }
 }
 
-export default new SocketServive();
+export default new SocketService();

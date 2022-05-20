@@ -1,25 +1,37 @@
 import User from "../../../entities/User";
 import { getUserToToken } from "../../../systems/users";
-import { SocketServive } from "../../services/socket-service";
+import { SocketService } from "../../services/socket-service";
 import { ConnectionSocketMessageToBot, ConnectionSocketMessage } from "../../types/socket-message-types";
 import { YugWebsocket } from "../../types/socket-types";
 import { errorMessage } from "../../utils/error-messages";
 
+const nickBot = [
+    'Майор ФСБ Тристан Обрамович Гладков',
+    'Полковник ФСБ Глеб Иванович Свинолуп',
+    'Сержант ФСБ Игорь Сандалович Козин',
+    'Иван Сусанин',
+    'Мирзаахмат Санакулович Норбеков',
+]
 
-const connectionAction = async (ws: YugWebsocket, service: SocketServive, msg: ConnectionSocketMessageToBot) => {
+const connectionAction = async (ws: YugWebsocket, service: SocketService, msg: ConnectionSocketMessageToBot) => {
     try {
         if (msg.isBot) {
+
             const bot = new User({
                 id:0,
-                userName: "Бот Вася",
+                userName: nickBot[Math.floor(Math.random() * nickBot.length)],
                 firstName: "Василий",
                 lastName: "Бот"
-            })
+            });
+
             ws.data = {
                 ...ws.data!,
                 isAuth: true,
                 token:'бот',
-                user: bot
+                user: bot,
+                roomData: {
+                    roomKey: null
+                }
             }
         } else {
             let user: User;
@@ -31,16 +43,21 @@ const connectionAction = async (ws: YugWebsocket, service: SocketServive, msg: C
                 ...ws.data!,
                 isAuth: true,
                 user: user,
-                token: msg.token
+                token: msg.token,
+                roomData: {
+                    roomKey: null
+                }
             }
         }
+
         service.sender<ConnectionSocketMessage>(ws, {
             method: "connection",
-            message: `${ws.data.user?.getUserName()}, добро пожаловать!`
+            message: `${ws.data!.user?.getUserName()}, добро пожаловать!`
         });
-        service.broadcastsystem.broadcast(ws, {
+
+        service.broadcastsystem.broadcast( {
             method: "connection",
-            message: `${ws.data.user?.getUserName()} вошёл в чат.`
+            message: `${ws.data!.user?.getUserName()} вошёл в чат.`
         })
     } catch (e) {
         service.sendError(ws, e);

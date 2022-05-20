@@ -1,3 +1,3 @@
 
-node F:\Work\YugServer\ServerYug\dist\index.js
+node \\SERV-D\Archive\Work\WebServer\ServerYug\dist\index.js
 

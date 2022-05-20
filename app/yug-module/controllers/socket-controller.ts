@@ -28,7 +28,7 @@ export default class SocketController {
         try {
             /*****************Подключение нового пользователя *************** */
             const ip = req.socket.remoteAddress || '';
-            ws.data = {ip, isAlive: true, isAuth: false, key: Date.now().toString(16)}
+            ws.data = {ip, isAlive: true, isAuth: false, key: Date.now().toString(16), roomData: {entityKey: null}}
             /*********************************************************** */
             ws.on('message', (data: string, isBinary: boolean) => {
                 try {

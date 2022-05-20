@@ -12,28 +12,29 @@ import entityDbSysytem from "../../systems/entity-db-system";
 export const deleteObject = async({ ws, service, msg }: YugWebsocketAction<DeleteSocketMessage>) => {
     try {
         const engine = createEngine();
-        engine.clearEntity();
         const key = msg.data.key || '';
-        
         //const entity = await getEntityToKey(key); // Получаем удаляемую сущность.
- 
         if (!key) throw new Error("Не указан ключ, или не корректно сформирован пакет");
         const type: 'cmp' | 'ent' = <'cmp' | 'ent'> key.split(':')[0];
-
         let deletedKey;
+        
         switch (type) {
             case 'cmp':
                 const deletedComponentKey = await componentModel.deleteComponentToKey(key)                
                 deletedKey = deletedComponentKey;
+                const ent = engine.getEntityByComponentKey(key);                
+                if (ent) ent.deleteComponentPropertyToKey(key);
                 break;
             case 'ent':
                 const deletedEntityKey = await deleteEntityToKey(key);
                 deletedKey = deletedEntityKey;
+                engine.removeToKey(key);
                 break;
             default:
                 const spareDeletedComponentKey = await componentModel.deleteComponentToKey(key)
                 const spareDeletedEntityKey = await deleteEntityToKey(key);
                 deletedKey = spareDeletedComponentKey || spareDeletedEntityKey;
+                engine.removeToKey(key);
                 break;
         }
 
@@ -60,8 +61,7 @@ export const deleteObject = async({ ws, service, msg }: YugWebsocketAction<Delet
                 const entitySamples = engine.loadEntities(samples || []);
                 const entities = entitySamples;
                 //const entities = entitySamples.map(e => e.assemble())
-
-                service.broadcastsystem.broadcast(ws, {
+                service.broadcastsystem.broadcast({
                     method: 'get',
                     action: '/sample-entities',
                     headers: msg.headers,
@@ -72,7 +72,7 @@ export const deleteObject = async({ ws, service, msg }: YugWebsocketAction<Delet
             if (type === 'cmp') {
                 const sampleComponents = await componentModel.getSamples();
                 const components = sampleComponents;
-                service.broadcastsystem.broadcast(ws, {
+                service.broadcastsystem.broadcast({
                     method: 'get',
                     action: '/sample-components',
                     headers: msg.headers,

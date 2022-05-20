@@ -21,4 +21,5 @@ export interface DbComponent {
   BINDING_TO_LIST: boolean;
   KEY: string;
   ENTITY_KEY: string;
+  FORMULA_IMPORT: string;
 }

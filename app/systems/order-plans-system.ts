@@ -63,8 +63,6 @@ export class OrderPlanSystem  {
         try {
             if(this.isEmpty() || !this.lastUpdate || (this.lastUpdate + (this.updateTime * 60 * 1000)) < Date.now()) 
                 await this.refrash();
-            //console.log(options);
-            
             const journalNameId: number | undefined = options?.id;
             const dependenses = this.dependenses.filter(d => d.journalNameId === Number(journalNameId));
 
@@ -86,7 +84,6 @@ export class OrderPlanSystem  {
                 if(order.journalId && !order.locationSectorId) check = false; 
                 /** если текущая локация совпадает с сектором, то показываем рабочее время в этом участке или обновляем */
                 if (order.locationSectorId && order.sectorId === order.locationSectorId) {
-                    //console.log(order.accepdedDate);
                     if (order.transferDate) {
                         order.workingTime = this.getWorkTime(order.transferDate);
                     }
@@ -95,10 +92,6 @@ export class OrderPlanSystem  {
             })
             const extraSystem = new ExtraDataSystem()
             const extraData = await extraSystem.getAll()
-
-            //console.log(extraData.filter(e => e.orderId == 20548));
-            
-            
             for (const o of orders) {
                 const comments = extraData.filter(e => e.orderId === o.id && e.name?.toUpperCase() ===  ExtraDataName.COMMENT.toUpperCase());
                 o.data.comments = comments;

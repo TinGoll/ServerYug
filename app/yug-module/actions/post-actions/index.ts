@@ -1,12 +1,13 @@
 import ApiError from "../../../exceptions/ApiError";
 import componentModel from "../../db-models/component-model";
-import { SocketServive } from "../../services/socket-service";
+import { SocketService } from "../../services/socket-service";
 import { PostSocketMessage } from "../../types/socket-message-types";
 import { YugWebsocket } from "../../types/socket-types";
 import { addEngineObject, constructionObject, registrationObject } from "./engine-object";
+import { produceEntity } from "./order-actions";
 
 
-const postActions = async (ws: YugWebsocket, service: SocketServive, msg: PostSocketMessage) => {
+const postActions = async (ws: YugWebsocket, service: SocketService, msg: PostSocketMessage) => {
     try {
         switch (msg.action) {
             case '/add-engine-object':
@@ -17,6 +18,9 @@ const postActions = async (ws: YugWebsocket, service: SocketServive, msg: PostSo
                 break;
             case '/construction-object':
                 constructionObject({ ws, service, msg }); // Добавление нового комопнента или номенклатуры.
+                break;
+            case '/produce-entity':
+                produceEntity({ ws, service, msg }); // Продуцирование сущностей
                 break;
             default:
                 break;

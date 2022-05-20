@@ -10,7 +10,6 @@ export const getComponentSamples = async ({ ws, service, msg }: YugWebsocketActi
     try {
         const samples = await componentModel.getSamples();
         const components = samples;
-       
         service.sender < GetSocketMessage < {components: ApiComponent[]}>>(ws, {
             method: 'get',
             action: '/sample-components',
@@ -27,7 +26,7 @@ export const getComponentSamples = async ({ ws, service, msg }: YugWebsocketActi
 export const getEntitySamples = async ({ ws, service, msg }: YugWebsocketAction<GetSocketMessage>) => {
     try {
         const engine = createEngine();
-        engine.clearEntity();
+        engine.clearSamples();
         const samples = await entityDbSysytem.getEntitySamples();   
 
         //const entitySamples = engine.loadAndReturning(samples||[]);
@@ -40,7 +39,6 @@ export const getEntitySamples = async ({ ws, service, msg }: YugWebsocketAction<
             headers: msg.headers,
             data: entities
         });
-        engine.clearEntity();
     } catch (e) {
         service.sendError(ws, e);
     }
@@ -51,7 +49,7 @@ export const getEntityPreparationData= async ({ ws, service, msg }: YugWebsocket
     try {
         let fatherKey: string | undefined = undefined;
         const engine = createEngine();
-        engine.clearEntity();
+        engine.clearSamples();
 
         const grandfatherApi = await getGrandfather(msg.data.key);
         const componentKey = msg.data.componentKey;

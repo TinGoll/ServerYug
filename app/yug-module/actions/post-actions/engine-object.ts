@@ -24,12 +24,14 @@ export const registrationObject = async ({ ws, service, msg }: YugWebsocketActio
         for (const o of object) {
             Engine.registration(o);
         }
+        
         service.sender<SuccessSocketMessage<{object: ApiComponent[] | ApiEntity[]}>>(ws, {
             method: 'success',
             message: `Ключи успешно присвоены.`,
             data: { object },
             headers: msg.headers
         });
+
     } catch (e) {
         console.log(e);
         service.sendError(ws, e);
@@ -52,7 +54,7 @@ export const constructionObject = async ({ ws, service, msg }: YugWebsocketActio
         /** Тип транзакции */
         let transaction: TypeTransaction = TypeTransaction.NONE;
         const engine = createEngine();
-        engine.clearEntity();
+        engine.clearSamples();
 
         const key = msg.data?.key;
         const attachmentKeys = msg.data?.attachmentKeys; // пока не задействованно.
@@ -124,24 +126,21 @@ export const constructionObject = async ({ ws, service, msg }: YugWebsocketActio
                 break;    
             case TypeTransaction.CHANGE_PROPERTY:
                 console.log('*******************************');
-                console.log('*********CHANGE_PROPERTY*******');
+                console.log('******** CHANGE_PROPERTY ******');
                 console.log('*******************************');
                 break;  
             default:
                 break;
         }
 
-
-
         console.time('Work Time');
-
 
         // Если создаем компонент
         if (transaction === TypeTransaction.CREATING_COMPONENT){
             result = await createComponent(engine.cloneComponents(<ApiComponent[]>object), engine);
         }    
 
-        // Если создаем компонент
+        // Если изменяем компонент
         if (transaction === TypeTransaction.CHANGE_PROPERTY) {
             result = await createComponent(<ApiComponent[]>object, engine);
         }  
@@ -199,7 +198,7 @@ export const constructionObject = async ({ ws, service, msg }: YugWebsocketActio
                     //const entities = entitySamples.map(e => e.assemble())
                 const entities = engine.loadEntities(samples || [])
 
-                    service.broadcastsystem.broadcast(ws, {
+                    service.broadcastsystem.broadcast({
                         method: 'get',
                         action: '/sample-entities',
                         headers: msg.headers,
@@ -209,7 +208,7 @@ export const constructionObject = async ({ ws, service, msg }: YugWebsocketActio
             if (transaction === TypeTransaction.CREATING_COMPONENT) {
                 const sampleComponents = await componentModel.getSamples();
                 const components = sampleComponents;
-                service.broadcastsystem.broadcast(ws, {
+                service.broadcastsystem.broadcast({
                     method: 'get',
                     action: '/sample-components',
                     headers: msg.headers,
@@ -217,6 +216,7 @@ export const constructionObject = async ({ ws, service, msg }: YugWebsocketActio
                 });
             }
         })();
+        engine.clearSamples()
     } catch (e) {
         console.log(e);
         service.sendError(ws, e);
@@ -235,6 +235,11 @@ const createEntity = async (object: ApiEntity, engine: Engine): Promise<ApiEntit
 
 const createComponent = async (object: ApiComponent[], engine: Engine): Promise<ApiComponent[]> => {
     // Проверено
+    engine.clearSamples()
+    for (const obj of object) {
+        Engine.registration(obj)
+
+    }
     const resultComponent = await saveComponents(object);
     return resultComponent;
 }
@@ -303,7 +308,7 @@ const attachmentComponent = async (key: string, attachment: ApiComponent[], engi
         entity.addComponent(attachment);
         /** Сохранение сущности. */
         const resultEntity = await saveEntities(entity.build());
-        engine.clearEntity();
+        engine.clearSamples();
         const [resD] = engine.loadAndReturning(resultEntity);
         if (grandFather && grandFather.getKey() === resD.getKey()) {
             return resD.build(); // Изменить на метод build(), при переходе на apiEntity // Готово
@@ -322,7 +327,7 @@ const cloneEntity = async (cloneKey: string, object: ApiEntity[], engine: Engine
         const apiEntities = await getEntityToKey(cloneKey);
         if (!apiEntities || !apiEntities.length) throw new Error("По данному ключу, сущность не найдена.");
 
-        engine.clearEntity();
+        engine.clearSamples();
 
         const [entity] = engine.loadAndReturning(apiEntities)
         const [cloneEntity] = engine.loadAndReturning([entity.clone()]); 
@@ -332,6 +337,7 @@ const cloneEntity = async (cloneKey: string, object: ApiEntity[], engine: Engine
         cloneEntity.setCategory(originalEntity.category!);
         cloneEntity.setNote(originalEntity.note!);
         const resultEntity = await saveEntities(cloneEntity.build());
+        engine.clearSamples()
         return engine.loadEntities(resultEntity);
         //return engine.loadAndReturning(resultEntity).map(e => e.assemble());
 
@@ -339,4 +345,3 @@ const cloneEntity = async (cloneKey: string, object: ApiEntity[], engine: Engine
         throw e;
     }
 }
-

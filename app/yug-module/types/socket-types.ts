@@ -1,6 +1,7 @@
 import { WebSocket } from "ws";
 import User from "../../entities/User";
-import { SocketServive } from "../services/socket-service";
+import { GetAllOrderData } from "../actions/order-action/orderController";
+import { SocketService } from "../services/socket-service";
 import { SocketMessage } from "./socket-message-types";
 
 export interface YugWebsocket extends WebSocket {
@@ -13,11 +14,15 @@ export interface YugWebsocketData {
     key: string;
     user?: User;
     token?: string;
-    userData?: any
+    userData?: any;
+    roomData: {
+        roomKey: string | null;
+        getAllOrderData?: GetAllOrderData;
+    }
 }
 
 export interface YugWebsocketAction<T extends SocketMessage = SocketMessage> {
     ws: YugWebsocket;
-    service: SocketServive;
+    service: SocketService;
     msg: T;
 }

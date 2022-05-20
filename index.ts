@@ -13,6 +13,8 @@ import ExtraDataSystem from "./app/systems/extra-data-system";
 import expressWs from 'express-ws';
 import yugSocketController from "./app/yug-module/controllers/yug-socket-controller";
 import { heartbeat, testSocket } from "./app/yug-module/utils/heartbeat-clients";
+import RoomController from "./app/yug-module/room-system/RoomController";
+import { Engine } from "yug-entity-system";
 
 export const { app, getWss, applyTo } = expressWs(express());
 export const aWss = getWss();
@@ -30,8 +32,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     "Access-Control-Allow-Headers",
     "Origin, X-Requested-With, Content-Type, Accept, Authorization"
   );
-  //console.log(req.originalUrl);
-  //console.log(`${req.path} - ${new Date().toLocaleString()}`, req.headers.authorization);
+ 
   next();
 });
 
@@ -53,8 +54,11 @@ config.routesOrders(app);
 /** Socket соедниниен */
 app.ws('/api/connection', yugSocketController.connect)  
 heartbeat(aWss); // Проверка сердцебияения.
+//Engine.setMode("DEV");
 //testSocket(aWss); //Тестовый таймер
 /************************************** */
+
+const rContrl = new RoomController();
 
 // Обработка ошибок.
 app.use(errorMiddleware);

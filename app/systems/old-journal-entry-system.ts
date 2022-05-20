@@ -54,8 +54,6 @@ export class OldJournalEntry {
 
                 const adoped: IAdopted = {
                     orders: adopedAll.orders.filter(a => {
-                        //console.log(a.accepted);
-                        
                         return a.accepted === 'Отгрузка';
                     }),
                     count: 0,
@@ -112,8 +110,6 @@ export class OldJournalEntry {
                     }
                 }
                 
-                //console.log(orders);
-                
                await this.pushToJournalPacking(orders, extraData, dependencies);
                 
                 
@@ -153,7 +149,6 @@ export class OldJournalEntry {
                             const upackQuery = `INSERT INTO JOURNAL_UPACK (ORDER_ID, TIME_PACK, BOX_COUNT, COMMENT, PACK_TYPE, DELAY, TS, DATE_PACK)
                                         VALUES (${torder.idOrder}, '${format(DatePack, 'HH:mm')}', ${countBox||0}, '${comments.map(c => c.data).join(', ')}', 'Полностью', 0, CURRENT_TIMESTAMP, '${format(DatePack, 'DD.MM.YYYY')}')`
                             db.execute(upackQuery);
-                            console.log(torder.idOrder, 'Добавлен в журнал упаковки');
                             
                         }
                     }
@@ -191,7 +186,6 @@ export class OldJournalEntry {
                                             countBox||0,
                                             comments.map(c => c.data).join(', ')
                                         ]);
-                            console.log(torder.idOrder, 'Добавлен в журнал отгрузки');
                         }
                     }
                 }

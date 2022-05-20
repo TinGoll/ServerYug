@@ -5,15 +5,78 @@ import { DbComponent } from "../types/components/component-types";
 import databaseQuery from "../utils/db-query";
 
 
+export const updateComponents = async (components: ApiComponent[]): Promise<ApiComponent[]> => {
+    const db = new FirebirdNativeAdapter();
+    const attachment = await db.connect();
+    const transaction = await attachment.startTransaction();
+    try {
+        const editable = await attachment.prepare(transaction, `
+            UPDATE COMPONENTS C SET
+                C.ID_ENTITY = ?, C.COMPONENT_NAME = ?, C.COMPONENT_DESCRIPTION = ?, C.PROPERTY_NAME = ?, C.PROPERTY_DESCRIPTION = ?,
+                C.PROPERTY_VALUE = ?, C.PROPERTY_FORMULA = ?, C.PROPERTY_TYPE = ?, C.ATTRIBUTES = ?, C.BINDING_TO_LIST = ?, C.KEY = ?, C.ENTITY_KEY = ?, C.FORMULA_IMPORT = ? 
+            WHERE C.ID = ?`);
+        for (const component of components) {
+            await editable.execute(transaction,
+                [
+                    component.entityId || null, component.componentName || null, component.componentDescription || null,
+                    component.propertyName || null, component.propertyDescription || null, String(component.propertyValue),
+                    component.propertyFormula || null, component.propertyType || null, component.attributes || null, component.bindingToList || false,
+                    component.key || null, component.entityKey || null, 
+                    component.formulaImport ? Buffer.alloc(component.formulaImport?.length||0, component.formulaImport) : null,
+                    component.id
+                ]);
+        }
+        await editable.dispose();
+        await transaction.commit();
+        return components;
+    } catch (e) {
+        await transaction.rollback();
+        throw e;
+    }
+}
+
+export const insertComponents = async (components: ApiComponent[]): Promise<ApiComponent[]> => {
+    const db = new FirebirdNativeAdapter();
+    const attachment = await db.connect();
+    const transaction = await attachment.startTransaction();
+    try {
+        const insertable = await attachment.prepare(transaction, 
+        `INSERT INTO COMPONENTS (
+            ID_ENTITY, COMPONENT_NAME, COMPONENT_DESCRIPTION, PROPERTY_NAME, 
+            PROPERTY_DESCRIPTION, PROPERTY_VALUE, PROPERTY_FORMULA, PROPERTY_TYPE,
+            ATTRIBUTES, BINDING_TO_LIST, KEY, ENTITY_KEY, FORMULA_IMPORT)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING ID;`);
+        for (const component of components) {
+            const newEntry = await insertable.executeSingletonAsObject<{ ID: number }>(transaction,
+                [
+                    component.entityId || null, component.componentName || null, component.componentDescription || null,
+                    component.propertyName || null, component.propertyDescription || null, String(component.propertyValue),
+                    component.propertyFormula || null, component.propertyType || null, component.attributes || null, component.bindingToList || false,
+                    component.key || null, component.entityKey || null, 
+                    component.formulaImport ? Buffer.alloc(component.formulaImport?.length || 0, component.formulaImport) : null,
+                ]);
+            component.id = newEntry.ID;
+        }
+        await insertable.dispose();
+        await transaction.commit();
+        return components;
+    } catch (e) {
+        await transaction.rollback();
+        throw e;
+    }
+}
+
 export const saveComponents = async  (components: ApiComponent[]): Promise<ApiComponent[]> => {
     //******************************************************************* */
     //************************* Проверено ******************************* */
     //******************************************************************* */
+
     const db = new FirebirdNativeAdapter();
     const attachment = await db.connect();
     const transaction = await attachment.startTransaction();
     try {
         const sampleComponents = components.filter(c => !c.entityKey);   
+
         if (sampleComponents.length) {
             const samples = await getSampleComponents();
             sampleComponents.forEach(c => {
@@ -34,13 +97,13 @@ export const saveComponents = async  (components: ApiComponent[]): Promise<ApiCo
          INSERT INTO COMPONENTS (
             ID_ENTITY, COMPONENT_NAME, COMPONENT_DESCRIPTION, PROPERTY_NAME, 
             PROPERTY_DESCRIPTION, PROPERTY_VALUE, PROPERTY_FORMULA, PROPERTY_TYPE,
-            ATTRIBUTES, BINDING_TO_LIST, KEY, ENTITY_KEY )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING ID;`);
+            ATTRIBUTES, BINDING_TO_LIST, KEY, ENTITY_KEY, FORMULA_IMPORT)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING ID;`);
 
         const editable = await attachment.prepare(transaction, `
             UPDATE COMPONENTS C SET
                 C.ID_ENTITY = ?, C.COMPONENT_NAME = ?, C.COMPONENT_DESCRIPTION = ?, C.PROPERTY_NAME = ?, C.PROPERTY_DESCRIPTION = ?,
-                C.PROPERTY_VALUE = ?, C.PROPERTY_FORMULA = ?, C.PROPERTY_TYPE = ?, C.ATTRIBUTES = ?, C.BINDING_TO_LIST = ?, C.KEY = ?, C.ENTITY_KEY = ?  
+                C.PROPERTY_VALUE = ?, C.PROPERTY_FORMULA = ?, C.PROPERTY_TYPE = ?, C.ATTRIBUTES = ?, C.BINDING_TO_LIST = ?, C.KEY = ?, C.ENTITY_KEY = ?, C.FORMULA_IMPORT = ? 
             WHERE C.ID = ?`);
 
 
@@ -52,6 +115,7 @@ export const saveComponents = async  (components: ApiComponent[]): Promise<ApiCo
                         component.propertyName || null, component.propertyDescription || null, String(component.propertyValue),
                         component.propertyFormula || null, component.propertyType || null, component.attributes || null, component.bindingToList || false,
                         component.key || null, component.entityKey || null,
+                        component.formulaImport ? Buffer.alloc(component.formulaImport?.length || 0, component.formulaImport) : null,
                         component.id
                     ]);
             } else {
@@ -60,7 +124,8 @@ export const saveComponents = async  (components: ApiComponent[]): Promise<ApiCo
                         component.entityId || null, component.componentName || null, component.componentDescription || null,
                         component.propertyName || null, component.propertyDescription || null, String(component.propertyValue),
                         component.propertyFormula || null, component.propertyType || null, component.attributes || null, component.bindingToList || false,
-                        component.key || null, component.entityKey || null
+                        component.key || null, component.entityKey || null, 
+                        component.formulaImport ? Buffer.alloc(component.formulaImport?.length || 0, component.formulaImport) : null,
                     ]);
                 component.id = newEntry.ID;
             }
