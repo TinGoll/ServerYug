@@ -53,3 +53,10 @@ class RoomTimer<T extends string = string> extends Map<T, ITimer<T>> {
         })
     }
 }
+
+
+const timer = new RoomTimer ()
+
+timer.update(1)
+
+timer.create("Время заказа вышло", 300, async () => console.log("Готово"), true)

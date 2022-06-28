@@ -1,4 +1,4 @@
-import createEngine, { ApiEntity, Engine, Entity, ApiComponent } from "yug-entity-system";
+import { ApiComponent } from "yug-entity-system-async";
 import FirebirdAdapter from "../data-base/adapters/FirebirdAdapter";
 import FirebirdNativeAdapter from "../data-base/adapters/FirebirdNativeAdapter";
 import { DbComponent } from "../types/components/component-types";
@@ -12,20 +12,20 @@ export const updateComponents = async (components: ApiComponent[]): Promise<ApiC
     try {
         const editable = await attachment.prepare(transaction, `
             UPDATE COMPONENTS C SET
-                C.ID_ENTITY = ?, C.COMPONENT_NAME = ?, C.COMPONENT_DESCRIPTION = ?, C.PROPERTY_NAME = ?, C.PROPERTY_DESCRIPTION = ?,
+                C.SAMPLE_KEY = ?, C.COMPONENT_NAME = ?, C.COMPONENT_DESCRIPTION = ?, C.PROPERTY_NAME = ?, C.PROPERTY_DESCRIPTION = ?,
                 C.PROPERTY_VALUE = ?, C.PROPERTY_FORMULA = ?, C.PROPERTY_TYPE = ?, C.ATTRIBUTES = ?, C.BINDING_TO_LIST = ?, C.KEY = ?, C.ENTITY_KEY = ?, C.FORMULA_IMPORT = ? 
             WHERE C.ID = ?`);
-        for (const component of components) {
-            await editable.execute(transaction,
-                [
-                    component.entityId || null, component.componentName || null, component.componentDescription || null,
-                    component.propertyName || null, component.propertyDescription || null, String(component.propertyValue),
-                    component.propertyFormula || null, component.propertyType || null, component.attributes || null, component.bindingToList || false,
-                    component.key || null, component.entityKey || null, 
-                    component.formulaImport ? Buffer.alloc(component.formulaImport?.length||0, component.formulaImport) : null,
-                    component.id
-                ]);
-        }
+        // for (const component of components) {
+        //     await editable.execute(transaction,
+        //         [
+        //             component.entityId || null, component.componentName || null, component.componentDescription || null,
+        //             component.propertyName || null, component.propertyDescription || null, String(component.propertyValue),
+        //             component.propertyFormula || null, component.propertyType || null, component.attributes || null, component.bindingToList || false,
+        //             component.key || null, component.entityKey || null, 
+        //             component.formulaImport ? Buffer.alloc(component.formulaImport?.length||0, component.formulaImport) : null,
+        //             component.id
+        //         ]);
+        // }
         await editable.dispose();
         await transaction.commit();
         return components;
@@ -46,17 +46,17 @@ export const insertComponents = async (components: ApiComponent[]): Promise<ApiC
             PROPERTY_DESCRIPTION, PROPERTY_VALUE, PROPERTY_FORMULA, PROPERTY_TYPE,
             ATTRIBUTES, BINDING_TO_LIST, KEY, ENTITY_KEY, FORMULA_IMPORT)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING ID;`);
-        for (const component of components) {
-            const newEntry = await insertable.executeSingletonAsObject<{ ID: number }>(transaction,
-                [
-                    component.entityId || null, component.componentName || null, component.componentDescription || null,
-                    component.propertyName || null, component.propertyDescription || null, String(component.propertyValue),
-                    component.propertyFormula || null, component.propertyType || null, component.attributes || null, component.bindingToList || false,
-                    component.key || null, component.entityKey || null, 
-                    component.formulaImport ? Buffer.alloc(component.formulaImport?.length || 0, component.formulaImport) : null,
-                ]);
-            component.id = newEntry.ID;
-        }
+        // for (const component of components) {
+        //     const newEntry = await insertable.executeSingletonAsObject<{ ID: number }>(transaction,
+        //         [
+        //             component.entityId || null, component.componentName || null, component.componentDescription || null,
+        //             component.propertyName || null, component.propertyDescription || null, String(component.propertyValue),
+        //             component.propertyFormula || null, component.propertyType || null, component.attributes || null, component.bindingToList || false,
+        //             component.key || null, component.entityKey || null, 
+        //             component.formulaImport ? Buffer.alloc(component.formulaImport?.length || 0, component.formulaImport) : null,
+        //         ]);
+        //     component.id = newEntry.ID;
+        // }
         await insertable.dispose();
         await transaction.commit();
         return components;
@@ -102,34 +102,34 @@ export const saveComponents = async  (components: ApiComponent[]): Promise<ApiCo
 
         const editable = await attachment.prepare(transaction, `
             UPDATE COMPONENTS C SET
-                C.ID_ENTITY = ?, C.COMPONENT_NAME = ?, C.COMPONENT_DESCRIPTION = ?, C.PROPERTY_NAME = ?, C.PROPERTY_DESCRIPTION = ?,
+                C.SAMPLE_KEY = ?, C.COMPONENT_NAME = ?, C.COMPONENT_DESCRIPTION = ?, C.PROPERTY_NAME = ?, C.PROPERTY_DESCRIPTION = ?,
                 C.PROPERTY_VALUE = ?, C.PROPERTY_FORMULA = ?, C.PROPERTY_TYPE = ?, C.ATTRIBUTES = ?, C.BINDING_TO_LIST = ?, C.KEY = ?, C.ENTITY_KEY = ?, C.FORMULA_IMPORT = ? 
             WHERE C.ID = ?`);
 
 
-        for (const component of components) {
-            if (component.id) {
-                await editable.execute(transaction,
-                    [
-                        component.entityId || null, component.componentName || null, component.componentDescription || null,
-                        component.propertyName || null, component.propertyDescription || null, String(component.propertyValue),
-                        component.propertyFormula || null, component.propertyType || null, component.attributes || null, component.bindingToList || false,
-                        component.key || null, component.entityKey || null,
-                        component.formulaImport ? Buffer.alloc(component.formulaImport?.length || 0, component.formulaImport) : null,
-                        component.id
-                    ]);
-            } else {
-                const newEntry = await savable.executeSingletonAsObject<{ ID: number }>(transaction,
-                    [
-                        component.entityId || null, component.componentName || null, component.componentDescription || null,
-                        component.propertyName || null, component.propertyDescription || null, String(component.propertyValue),
-                        component.propertyFormula || null, component.propertyType || null, component.attributes || null, component.bindingToList || false,
-                        component.key || null, component.entityKey || null, 
-                        component.formulaImport ? Buffer.alloc(component.formulaImport?.length || 0, component.formulaImport) : null,
-                    ]);
-                component.id = newEntry.ID;
-            }
-        }
+        // for (const component of components) {
+        //     if (component.id) {
+        //         await editable.execute(transaction,
+        //             [
+        //                 component.entityId || null, component.componentName || null, component.componentDescription || null,
+        //                 component.propertyName || null, component.propertyDescription || null, String(component.propertyValue),
+        //                 component.propertyFormula || null, component.propertyType || null, component.attributes || null, component.bindingToList || false,
+        //                 component.key || null, component.entityKey || null,
+        //                 component.formulaImport ? Buffer.alloc(component.formulaImport?.length || 0, component.formulaImport) : null,
+        //                 component.id
+        //             ]);
+        //     } else {
+        //         const newEntry = await savable.executeSingletonAsObject<{ ID: number }>(transaction,
+        //             [
+        //                 component.entityId || null, component.componentName || null, component.componentDescription || null,
+        //                 component.propertyName || null, component.propertyDescription || null, String(component.propertyValue),
+        //                 component.propertyFormula || null, component.propertyType || null, component.attributes || null, component.bindingToList || false,
+        //                 component.key || null, component.entityKey || null, 
+        //                 component.formulaImport ? Buffer.alloc(component.formulaImport?.length || 0, component.formulaImport) : null,
+        //             ]);
+        //         component.id = newEntry.ID;
+        //     }
+        // }
 
         await savable.dispose();
         await editable.dispose();
@@ -151,14 +151,14 @@ export const deleteComponentToKey = async (key: string):Promise<string | null> =
 
 export const getSampleComponents = async (): Promise<ApiComponent[]> => {
     const db = new FirebirdAdapter();
-    const result = await db.executeRequest<DbComponent>(`SELECT * FROM COMPONENTS C WHERE C.ID_ENTITY IS NULL`);
+    const result = await db.executeRequest<DbComponent>(`SELECT * FROM COMPONENTS C WHERE C.SAMPLE_KEY IS NULL`);
     return convertDbDataToObject(result);
 
 }
 
 export const getSapmpleComponentToName = async (name: string): Promise<ApiComponent[]> => {
     const db = new FirebirdAdapter();
-    const result = await db.executeRequest<DbComponent>(`SELECT * FROM COMPONENTS C WHERE C.ID_ENTITY IS NULL AND C.COMPONENT_NAME = ?`, [name]);
+    const result = await db.executeRequest<DbComponent>(`SELECT * FROM COMPONENTS C WHERE C.SAMPLE_KEY IS NULL AND C.COMPONENT_NAME = ?`, [name]);
     return convertDbDataToObject(result);
 }
 
@@ -169,7 +169,7 @@ export const getPropertyToName = async (
   const db = new FirebirdAdapter();
   const result = await db.executeRequest<DbComponent>(
     `SELECT * FROM COMPONENTS
-    C WHERE C.ID_ENTITY IS NULL
+    C WHERE C.SAMPLE_KEY IS NULL
     AND C.COMPONENT_NAME = ?
     AND C.PROPERTY_NAME = ?`,
     [componentName, propertyName]
@@ -183,8 +183,7 @@ const convertDbDataToObject = (data: DbComponent[]): ApiComponent[] => {
     try {
         return data.map(d => {
             const component: ApiComponent = {
-                id: d.ID || undefined,
-                entityId: d.ID_ENTITY || undefined,
+                id: d.ID || 0,
                 componentName: d.COMPONENT_NAME,
                 componentDescription: d.COMPONENT_DESCRIPTION,
                 propertyName: d.PROPERTY_NAME,
@@ -195,7 +194,9 @@ const convertDbDataToObject = (data: DbComponent[]): ApiComponent[] => {
                 attributes: d.ATTRIBUTES || undefined,
                 bindingToList: d.BINDING_TO_LIST || undefined,
                 key: d.KEY,
-                entityKey: d.ENTITY_KEY || undefined
+                entityKey: d.ENTITY_KEY || undefined,
+                index: 0,
+                indicators: {}
             }
             return component;
         })

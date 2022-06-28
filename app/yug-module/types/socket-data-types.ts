@@ -1,4 +1,5 @@
-import { ApiComponent, ApiEntity } from "yug-entity-system";
+import { ApiComponent, ApiEntity } from "yug-entity-system-async";
+
 
 
 export interface EngineObjectData {

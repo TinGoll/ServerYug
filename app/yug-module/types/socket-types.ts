@@ -1,12 +1,18 @@
 import { WebSocket } from "ws";
+import { Subscriber } from "yug-entity-system-async";
 import User from "../../entities/User";
-import { GetAllOrderData } from "../actions/order-action/orderController";
+import { IUser } from "../../types/user-types";
+import { GetAllOrderData } from "../actions/order-action/interfaces";
 import { SocketService } from "../services/socket-service";
 import { SocketMessage } from "./socket-message-types";
 
-export interface YugWebsocket extends WebSocket {
-    data?: YugWebsocketData;
+
+
+export interface YugWebsocket extends Subscriber<string, IUser | null>, WebSocket {
+    headers: object;
+    tempData: SocketTempData;
 }
+
 export interface YugWebsocketData {
     isAlive: boolean;
     isAuth: boolean;
@@ -19,6 +25,10 @@ export interface YugWebsocketData {
         roomKey: string | null;
         getAllOrderData?: GetAllOrderData;
     }
+}
+
+interface SocketTempData {
+    getAllOrderData?: GetAllOrderData;
 }
 
 export interface YugWebsocketAction<T extends SocketMessage = SocketMessage> {

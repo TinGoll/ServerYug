@@ -1,4 +1,5 @@
-import { ApiEntity } from "yug-entity-system";
+
+import { ApiEntity } from "yug-entity-system-async";
 import FirebirdNativeAdapter from "../../data-base/adapters/FirebirdNativeAdapter";
 import { getEntityToKey } from "../../systems/entity-db-system";
 import databaseQuery from "../../utils/db-query";
@@ -27,11 +28,20 @@ class OrderSampleService {
      * @param filter object 
      * @returns 
      */
+
     async getSampleNames({ key, name, note, category }: Partial<SampleNames>): Promise<SampleNames[]> {
         try {
             const db = new FirebirdNativeAdapter();
+            const attachment = await db.connect();
+            const transaction = await attachment.startTransaction();
+
             const onlyParents: boolean = true;
-            const dbData = await db.executeRequest<SampleNamesDb>(databaseQuery("get sample names"), []);
+
+            const recordSet = await attachment.executeQuery(transaction, databaseQuery("get sample names"), []);
+            const dbData = await recordSet.fetchAsObject<SampleNamesDb>();
+
+            //const dbData = await db.executeRequest<SampleNamesDb>(databaseQuery("get sample names"), []);
+
             return sampleNamesConverterDbToData(dbData).filter((data, index, arr) => {
                 let filter: boolean = true;
                 if (key) {

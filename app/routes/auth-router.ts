@@ -20,7 +20,7 @@ const prefix: string = '/auth';
 // Пост запросы
 router.post(prefix + '/register', registerSchema, validateRequestSchema, authController.register); // Регистрация пользователя
 router.post(prefix + '/login', authController.login); // Вход в систему
-router.post(prefix + '/login', authController.logout); //Выход из системы (не реализовано)
+router.post(prefix + '/logout', authController.logout); //Выход из системы (не реализовано)
 // router.post('/refresh'); // Обновление токена (не реализовано)
 router.post(prefix + '/get-login-data', authController.getUserData);
 // router.post('/test');

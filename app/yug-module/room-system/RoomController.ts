@@ -1,4 +1,5 @@
-import createEngine, { Engine, Entity } from "yug-entity-system";
+
+import Entity from "yug-entity-system-async/dist/Entity";
 import FirebirdNativeAdapter from "../data-base/adapters/FirebirdNativeAdapter";
 import { SocketService } from "../services/socket-service";
 import { getEntityToKey } from "../systems/entity-db-system";
@@ -32,22 +33,24 @@ export default class RoomController {
     async getRoomToKey (entityKey: string, ws: YugWebsocket, service: SocketService): Promise<Room> {
         try {
 
-            if (this.roomList.has(entityKey)) {
-                const room = this.roomList.get(entityKey)!;
-                room.subscribe(ws);
-                return room;
-            }
+            // if (this.roomList.has(entityKey)) {
+            //     const room = this.roomList.get(entityKey)!;
+            //     room.subscribe(ws);
+            //     return room;
+            // }
 
-            const engine = createEngine();
-            if (!engine.has(entityKey)) {
-                const entityApi = await getEntityToKey(entityKey);
-                engine.loadEntities(entityApi);
-            }
+            // const engine = createEngine();
+            // if (!engine.has(entityKey)) {
+            //     const entityApi = await getEntityToKey(entityKey);
+            //     engine.loadEntities(entityApi);
+            // }
 
-            const entity = engine.creator().getEntityToKey(entityKey);
-            if (!entity) throw new Error("Сущность не найдена.")
-            const newRoom = this.createRoom(entity, ws, service);
-            return this.addRoom(newRoom);
+            // const entity = engine.creator().getEntityToKey(entityKey);
+            // if (!entity) throw new Error("Сущность не найдена.")
+            // const newRoom = this.createRoom(entity, ws, service);
+            // return this.addRoom(newRoom);
+            let e: any = {}
+            return new Room(e, ws, service, this)
         } catch (e) {
             throw e;
         }
@@ -176,7 +179,10 @@ export default class RoomController {
     async getAllOrders (filter: {name?: string, category?: string} = {}) {
         try {
             const db = new FirebirdNativeAdapter();
+            console.time('FirstWay');
             const ordersDb = await db.executeRequest<OrderDb>(databaseQuery("get all orders"), []);
+
+            console.timeEnd('FirstWay');
             const dataOrders =  ordersDb
                 .filter(o => {
                     // Сделать фильтрацию

@@ -14,25 +14,24 @@ const nickBot = [
 ]
 
 const connectionAction = async (ws: YugWebsocket, service: SocketService, msg: ConnectionSocketMessageToBot) => {
+
     try {
         if (msg.isBot) {
-
             const bot = new User({
                 id:0,
                 userName: nickBot[Math.floor(Math.random() * nickBot.length)],
                 firstName: "Василий",
                 lastName: "Бот"
             });
-
             ws.data = {
                 ...ws.data!,
                 isAuth: true,
                 token:'бот',
                 user: bot,
-                roomData: {
-                    roomKey: null
-                }
             }
+
+            
+            
         } else {
             let user: User;
             try {user = await getUserToToken(msg.token);} catch (e) {
@@ -44,9 +43,6 @@ const connectionAction = async (ws: YugWebsocket, service: SocketService, msg: C
                 isAuth: true,
                 user: user,
                 token: msg.token,
-                roomData: {
-                    roomKey: null
-                }
             }
         }
 

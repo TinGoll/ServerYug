@@ -1,4 +1,5 @@
-import { ApiComponent } from "yug-entity-system";
+
+import { ApiComponent } from "yug-entity-system-async";
 import FirebirdAdapter from "../data-base/adapters/FirebirdAdapter";
 import FirebirdNativeAdapter from "../data-base/adapters/FirebirdNativeAdapter";
 import { ISQLAdapter } from "../data-base/adapters/ISQLAdapter";
@@ -8,7 +9,6 @@ export class ComponentApiModel {
     /** Соответсвие ключей базы данных и интерфейса комопнентов Api */
     private static keys: [keyof DbComponent, keyof ApiComponent][] = [
         ['ID', 'id'],
-        ['ID_ENTITY', 'entityId'],
         ['COMPONENT_NAME', 'componentName'],
         ['COMPONENT_DESCRIPTION', 'componentDescription'],
         ['PROPERTY_NAME', 'propertyName'],
@@ -23,8 +23,8 @@ export class ComponentApiModel {
     async save(component: ApiComponent[], db: ISQLAdapter = new FirebirdAdapter()): Promise<ApiComponent[]> {
         try {
             const resultComponent: ApiComponent[] = [];
-            const samples = [...component.filter(c => !c.entityId)];
-            const comps = [...component.filter(c => !!c.entityId)];
+            const samples = [...component.filter(c => !c.entityKey)];
+            const comps = [...component.filter(c => !!c.entityKey)];
             /** Получаем уже существующие шаблоны компонентов, в том случае, если это требуется */
             let existingSamples: ApiComponent[] = [];
             if (samples.length) {existingSamples = await this.getSamples();}
@@ -69,30 +69,30 @@ export class ComponentApiModel {
      */
     private async addComponent(comp: ApiComponent, db: ISQLAdapter = new FirebirdAdapter()): Promise<ApiComponent> {
         try {
-            const formulaImportBlob = comp.formulaImport ? Buffer.alloc(comp.formulaImport?.length || 0, comp.formulaImport) : null;
-            const newEntry = await db.executeAndReturning<{ID: number}>(`
-                INSERT INTO COMPONENTS (
-                    ID_ENTITY, COMPONENT_NAME, COMPONENT_DESCRIPTION, PROPERTY_NAME, 
-                    PROPERTY_DESCRIPTION, PROPERTY_VALUE, PROPERTY_FORMULA, PROPERTY_TYPE,
-                    ATTRIBUTES, BINDING_TO_LIST, KEY, ENTITY_KEY, FORMULA_IMPORT
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING ID;`, 
-            [
-                comp.entityId || null, 
-                comp.componentName || null, 
-                comp.componentDescription || null, 
-                comp.propertyName || null, 
-                comp.propertyDescription || null, 
-                comp.propertyValue ? String(comp.propertyValue) : null,
-                comp.propertyFormula || null,
-                comp.propertyType || null,
-                comp.attributes || null,
-                String(!!comp.bindingToList),
-                comp.key||null,
-                comp.entityKey||null,
-                formulaImportBlob
-            ]);
-            comp.id = newEntry.ID;
+            // const formulaImportBlob = comp.formulaImport ? Buffer.alloc(comp.formulaImport?.length || 0, comp.formulaImport) : null;
+            // const newEntry = await db.executeAndReturning<{ID: number}>(`
+            //     INSERT INTO COMPONENTS (
+            //         ID_ENTITY, COMPONENT_NAME, COMPONENT_DESCRIPTION, PROPERTY_NAME, 
+            //         PROPERTY_DESCRIPTION, PROPERTY_VALUE, PROPERTY_FORMULA, PROPERTY_TYPE,
+            //         ATTRIBUTES, BINDING_TO_LIST, KEY, ENTITY_KEY, FORMULA_IMPORT
+            //     )
+            //     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING ID;`, 
+            // [
+            //     comp.entityId || null, 
+            //     comp.componentName || null, 
+            //     comp.componentDescription || null, 
+            //     comp.propertyName || null, 
+            //     comp.propertyDescription || null, 
+            //     comp.propertyValue ? String(comp.propertyValue) : null,
+            //     comp.propertyFormula || null,
+            //     comp.propertyType || null,
+            //     comp.attributes || null,
+            //     String(!!comp.bindingToList),
+            //     comp.key||null,
+            //     comp.entityKey||null,
+            //     formulaImportBlob
+            // ]);
+            // comp.id = newEntry.ID;
             return comp;
         } catch (e) {
             throw e
@@ -103,20 +103,20 @@ export class ComponentApiModel {
      */
     private async updateComponent(comp: ApiComponent, db: ISQLAdapter = new FirebirdAdapter()): Promise<ApiComponent> {
         try {
-            db.execute(`
-                UPDATE COMPONENTS C SET
-                    C.ID_ENTITY = ?, C.COMPONENT_NAME = ?, C.COMPONENT_DESCRIPTION = ?, C.PROPERTY_NAME = ?, C.PROPERTY_DESCRIPTION = ?,
-                    C.PROPERTY_VALUE = ?, C.PROPERTY_FORMULA = ?, C.PROPERTY_TYPE = ?, C.ATTRIBUTES = ?, C.BINDING_TO_LIST = ?,
-                    C.KEY = ?, C.ENTITY_KEY = ?, C.FORMULA_IMPORT = ?
-                WHERE C.ID = ?
-            `,
-            [
-                comp.entityId || null, comp.componentName || null, comp.componentDescription || null, comp.propertyName || null,
-                comp.propertyDescription || null, comp.propertyValue ? String(comp.propertyValue) : null,
-                comp.propertyFormula || null, comp.propertyType || null, comp.attributes || null, String(!!comp.bindingToList),
-                comp.key || null, comp.entityKey || null, comp.formulaImport ? Buffer.alloc(comp.formulaImport?.length || 0, comp.formulaImport) : null, ,
-                comp.id || null
-            ]);
+            // db.execute(`
+            //     UPDATE COMPONENTS C SET
+            //         C.ID_ENTITY = ?, C.COMPONENT_NAME = ?, C.COMPONENT_DESCRIPTION = ?, C.PROPERTY_NAME = ?, C.PROPERTY_DESCRIPTION = ?,
+            //         C.PROPERTY_VALUE = ?, C.PROPERTY_FORMULA = ?, C.PROPERTY_TYPE = ?, C.ATTRIBUTES = ?, C.BINDING_TO_LIST = ?,
+            //         C.KEY = ?, C.ENTITY_KEY = ?, C.FORMULA_IMPORT = ?
+            //     WHERE C.ID = ?
+            // `,
+            // [
+            //     comp.entityId || null, comp.componentName || null, comp.componentDescription || null, comp.propertyName || null,
+            //     comp.propertyDescription || null, comp.propertyValue ? String(comp.propertyValue) : null,
+            //     comp.propertyFormula || null, comp.propertyType || null, comp.attributes || null, String(!!comp.bindingToList),
+            //     comp.key || null, comp.entityKey || null, comp.formulaImport ? Buffer.alloc(comp.formulaImport?.length || 0, comp.formulaImport) : null, ,
+            //     comp.id || null
+            // ]);
             return comp;
         } catch (e) {
             throw e;
@@ -127,7 +127,7 @@ export class ComponentApiModel {
     async getSamples() {
         try {
             const db = new FirebirdAdapter();
-            const result = await db.executeRequest<DbComponent>(`SELECT * FROM COMPONENTS C WHERE C.ID_ENTITY IS NULL`);
+            const result = await db.executeRequest<DbComponent>(`SELECT * FROM COMPONENTS C WHERE C.ENTITY_KEY IS NULL`);
             return ComponentApiModel.convertDbDataToObject(result);
         } catch (e) {
             console.log(e);
@@ -139,7 +139,7 @@ export class ComponentApiModel {
     async getSampleToName<T extends string = EntityComponentNames>(componentName: T): Promise<ApiComponent[]> {
         try {
             const db = new FirebirdAdapter();
-            const result = await db.executeRequest<DbComponent>('SELECT * FROM COMPONENTS C WHERE C.ID_ENTITY IS NULL AND C.COMPONENT_NAME = ?', [componentName]);
+            const result = await db.executeRequest<DbComponent>('SELECT * FROM COMPONENTS C WHERE C.ENTITY_KEY IS NULL AND C.COMPONENT_NAME = ?', [componentName]);
             return ComponentApiModel.convertDbDataToObject(result);
         } catch (e) {
             throw e;
@@ -194,8 +194,7 @@ export class ComponentApiModel {
         try {
             return data.map(d => {
                 const component: ApiComponent = {
-                    id: d.ID || undefined,
-                    entityId: d.ID_ENTITY || undefined,
+                    id: d.ID || 0,
                     componentName: d.COMPONENT_NAME,
                     componentDescription: d.COMPONENT_DESCRIPTION,
                     propertyName: d.PROPERTY_NAME,
@@ -207,7 +206,8 @@ export class ComponentApiModel {
                     bindingToList: d.BINDING_TO_LIST || undefined,
                     key: d.KEY,
                     entityKey: d.ENTITY_KEY || undefined,
-                    formulaImport: d.FORMULA_IMPORT || undefined,
+                    index: 0,
+                    indicators: {}
                 }
                 return component;
             })

@@ -9,7 +9,7 @@ const getEntityToKey = `WITH RECURSIVE CTE
                         INNER JOIN CTE ON E.ID_PARENT = CTE.ID)
                     SELECT CT.*,
                         C.ID AS ID_COMPONENT,
-                        C.ID_ENTITY,
+                        C.ENTITY_KEY,
                         C.COMPONENT_NAME,
                         C.COMPONENT_DESCRIPTION,
                         C.PROPERTY_NAME,
@@ -23,8 +23,8 @@ const getEntityToKey = `WITH RECURSIVE CTE
                         C.ENTITY_KEY,
                         BLOB_CONVERT(C.FORMULA_IMPORT) AS FORMULA_IMPORT
                     FROM CTE CT
-                    LEFT JOIN COMPONENTS C ON (C.ID_ENTITY = CT.ID)
-                    ORDER BY C.ID_ENTITY, C.ID`;
+                    LEFT JOIN COMPONENTS C ON (C.ENTITY_KEY = CT."KEY")
+                    ORDER BY C."INDEX", C.ID`;
 
 const findGrandfather = `
     WITH RECURSIVE FIND_GRAND_PARENT
@@ -43,15 +43,17 @@ const findGrandfather = `
     LEFT JOIN COMPONENTS CMP ON (CMP.ID_ENTITY = FGB.ID)
     WHERE FGB.ID_PARENT IS NULL
 `
-const getSampleNames = `SELECT E.ID, E."KEY", E.PARENT_KEY, E.NAME, E.NOTE, E.CATEGORY FROM ENTITIES E WHERE E.ID_SAMPLE IS NULL`;
+const getSampleNames = `SELECT E.ID, E."KEY", E.PARENT_KEY, E.NAME, E.NOTE, E.CATEGORY FROM ENTITIES E WHERE E.SAMPLE_KEY IS NULL`;
+
 const getEntityCategories = `SELECT DISTINCT E.CATEGORY FROM ENTITIES E WHERE E.CATEGORY IS NOT NULL`
+
 const getAllOrders = `SELECT E.ID, E."KEY", E.NAME, E.NOTE, E.CATEGORY,
                         C.COMPONENT_NAME, C.PROPERTY_NAME, C.COMPONENT_DESCRIPTION,
                         C.PROPERTY_DESCRIPTION, C.PROPERTY_VALUE
                     FROM ENTITIES E
-                        LEFT JOIN COMPONENTS C ON (C.ID_ENTITY = E.ID)
-                    WHERE E.ID_PARENT IS NULL AND
-                        E.ID_SAMPLE IS NOT NULL`
+                        LEFT JOIN COMPONENTS C ON (C.ENTITY_KEY = E."KEY")
+                    WHERE E.PARENT_KEY IS NULL AND
+                        E.SAMPLE_KEY IS NOT NULL`
 
 databaseQueryMap.set('get entity categories', getEntityCategories);
 databaseQueryMap.set('get sample names', getSampleNames);

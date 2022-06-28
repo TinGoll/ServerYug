@@ -102,17 +102,17 @@ const postActionTypes = [
 /****************************************************** */
 
 /** Массив ORDER actions */
-type OrderActions = typeof orderActionTypes[number]
+export type OrderActions = typeof orderActionTypes[number]
 const orderActionTypes = [
-    '/create-order',
-    '/open-order',
-    '/close-order',
-    '/add-order-element',
-    '/delete-order-element',
-    '/edit-order-element',
-    '/get-order-data',
+    '/create-room',
+    '/open-room',
+    '/close-room',
+    '/add-room-element',
+    '/delete-room-element',
+    '/edit-room-element',
+    '/get-room-data',
     '/get-current-user',
-    '/get-order-history',
+    '/get-room-history',
     '/get-all-orders',
     '/get-api-directory',
     '/get-changed-order-data',
@@ -121,6 +121,11 @@ const orderActionTypes = [
     '/change-entity-component',
     '/add-property-to-element',
     '/remove-property-from-element',
+    '/create-sample-entity',
+    '/create-sample-component',
+    '/sample-components',
+    '/edit-sample-components',
+    '/formula-preparation-data'
 ] as const
 /****************************************************** */
 

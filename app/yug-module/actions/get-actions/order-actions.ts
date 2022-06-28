@@ -1,4 +1,5 @@
-import { ApiEntity } from "yug-entity-system";
+
+import { ApiEntity } from "yug-entity-system-async";
 import orderSampleService, { SampleNames } from "../../services/orders/order-sample-service";
 import { GetSocketMessage } from "../../types/socket-message-types";
 import { YugWebsocketAction } from "../../types/socket-types";

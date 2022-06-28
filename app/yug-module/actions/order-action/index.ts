@@ -1,29 +1,48 @@
 import { SocketService } from "../../services/socket-service";
 import { OrderSocketMessage } from "../../types/socket-message-types";
 import { YugWebsocket } from "../../types/socket-types";
-import { addOrderElement, addPropertyToElement, changeEntityComponentToKey, closeOrder, createOrder, deleteOrderElement, editOrderElement, getAllOrders, getApiDirectory, getApiEntityToKey, getSampleNames, openOrder, removePropertyFromElement } from "./orderController";
+import {
+  addOrderElement,
+  addPropertyToElement,
+  changeEntityComponentToKey,
+  closeOrder,
+  createOrder,
+  createSampleComponent,
+  createSampleEntity,
+  deleteOrderElement,
+  editOrderElement,
+  editSampleComponents,
+  getAllOrders,
+  getApiDirectory,
+  getApiEntityToKey,
+  getPreparationData,
+  getSampleComponents,
+  getSampleNames,
+  openOrder,
+  removePropertyFromElement,
+} from "./orderController";
 
 
 const orderActions = async (ws: YugWebsocket, service: SocketService, msg: OrderSocketMessage) => {
     try {
         switch (msg.action) {
             // Метод для заказа
-            case "/create-order": // Создание заказа
+            case "/create-room": // Создание заказа +
                 createOrder({ ws, service, msg });
                 break
-            case "/open-order": // Открытие заказа
+            case "/open-room": // Открытие заказа +
                 openOrder({ ws, service, msg });
                 break;
-            case "/close-order": // Закрытие заказа
+            case "/close-room": // Закрытие заказа +
                 closeOrder({ ws, service, msg });
                 break;
-            case "/add-order-element": // Добавление элемента
+            case "/add-room-element": // Добавление сущности в сущность +
                 addOrderElement({ ws, service, msg }); 
                 break;
-            case "/delete-order-element": // Удаление элемента из заказа
+            case "/delete-room-element": // Удаление сущности из заказа +
                 deleteOrderElement({ ws, service, msg });
                 break;
-            case "/edit-order-element": // Редактирование значение элемента заказа.
+            case "/edit-room-element": // Редактирование значение сущности заказа. +
                 editOrderElement({ ws, service, msg });
                 break;
             case "/get-all-orders": // Получение списка заказов (верхний уровень , с компонентами)
@@ -36,7 +55,15 @@ const orderActions = async (ws: YugWebsocket, service: SocketService, msg: Order
                 removePropertyFromElement({ ws, service, msg });
                 break;
 
-                // Методы для конструктора.
+            // Методы для конструктора.
+            case "/create-sample-entity": // Создание шаблона
+                createSampleEntity({ ws, service, msg })
+                break;
+         
+            case "/create-sample-component": // Создание шаблона
+                createSampleComponent({ ws, service, msg })
+                break;
+
             case "/get-sample-names": // Получение списка заказов (верхний уровень , с компонентами)
                 getSampleNames({ ws, service, msg });
                 break;
@@ -47,6 +74,16 @@ const orderActions = async (ws: YugWebsocket, service: SocketService, msg: Order
                 changeEntityComponentToKey({ ws, service, msg });
                 break;
 
+            case "/sample-components":
+                getSampleComponents({ ws, service, msg })
+                break;
+            case "/edit-sample-components": // изменение свойств компонента
+                editSampleComponents({ ws, service, msg })
+                break;
+            case "/formula-preparation-data": // изменение свойств компонента
+                getPreparationData({ ws, service, msg })
+                break;
+            
                 // Метод для списка АПИ.
             case "/get-api-directory": // получение списка api.
                 getApiDirectory({ ws, service, msg });

@@ -1,7 +1,7 @@
-import createEngine, { ApiEntity, Engine, Entity, ApiComponent } from "yug-entity-system";
 import FirebirdNativeAdapter from "../data-base/adapters/FirebirdNativeAdapter";
 import { Blob } from 'node-firebird-driver-native';
 import databaseQuery from "../utils/db-query";
+import { ApiEntity, ApiComponent } from "yug-entity-system-async";
 
 /** Возвращает одну сущность, которая являеться праотцом сущности. */
 export const getGrandfather = async (key: string): Promise<ApiEntity | null> => {
@@ -28,7 +28,7 @@ export const deleteEntityToKey = async (key: string): Promise<string | null> => 
 export const deleteComponentsToId= async (id: number): Promise<void> => {
     try {
         const db = new FirebirdNativeAdapter();
-        await db.execute(`DELETE FROM COMPONENTS C WHERE C.ID_ENTITY = ?`, [id]);
+        await db.execute(`DELETE FROM COMPONENTS C WHERE C.ENTITY_KEY = ?`, [id]);
     } catch (e) {
         throw e;
     }
@@ -104,37 +104,39 @@ const convertEntityViewToApi = (data: EntityView[]): ApiEntity[] => {
 /** Сохранение родительской и всех дочерних сущностей */
 export const saveEntities = async (entities: ApiEntity[]=[]): Promise<ApiEntity[]> => {
     try {
-        const fathers = entities.filter((e, i, arr )=> {
-            if (!e.parentKey) return true;
-            const index = arr.findIndex(f => f.key === e.parentKey);
-            return index === -1;
-        })
+        // const fathers = entities.filter((e, i, arr )=> {
+        //     if (!e.parentKey) return true;
+        //     const index = arr.findIndex(f => f.key === e.parentKey);
+        //     return index === -1;
+        // })
         
-        if (fathers.length) {
-            const engine = createEngine();
-            const apiSamples = await getEntitySamples();
-            engine.clearSamples();
-            const samples = engine.loadAndReturning(apiSamples);
+        // if (fathers.length) {
+        //     const engine = createEngine();
+        
+        //     const apiSamples = await getEntitySamples();
+        //     engine.clearSamples();
+        //     const samples = engine.loadAndReturning(apiSamples);
 
-            for (const father of fathers) {
-                const sample = samples.find(s => s.getKey() === father.key);
-                if (sample) {
-                    const index = entities.findIndex(e => e.key === father.key);
-                    if (index >= 0) {
-                        entities[index].id = sample.getId();
-                        entities[index].key = sample.getKey();
-                    }
-                   // await deleteChildsToParentId(father.id);
-                   // await deleteComponentsToId(father.id);
-                }
-            }
-        }
-        //const disassembleEntity = disassemble(entities); - уже разобраны
-        const disassembleEntity = new Set(entities)
-        const resultEntities = await writeEntityToBatabase(disassembleEntity);
-        const disassembleComponents = disassembleComponent(resultEntities);
-        await writeComponentToBatabase(disassembleComponents);
-        return entities;
+        //     for (const father of fathers) {
+        //         const sample = samples.find(s => s.getKey() === father.key);
+        //         if (sample) {
+        //             const index = entities.findIndex(e => e.key === father.key);
+        //             if (index >= 0) {
+        //                 entities[index].id = sample.getId();
+        //                 entities[index].key = sample.getKey();
+        //             }
+        //            // await deleteChildsToParentId(father.id);
+        //            // await deleteComponentsToId(father.id);
+        //         }
+        //     }
+        // }
+        // //const disassembleEntity = disassemble(entities); - уже разобраны
+        // const disassembleEntity = new Set(entities)
+        // const resultEntities = await writeEntityToBatabase(disassembleEntity);
+        // const disassembleComponents = disassembleComponent(resultEntities);
+        // await writeComponentToBatabase(disassembleComponents);
+        // return entities;
+        return []
     } catch (e) {
         throw e;
     }
@@ -151,15 +153,16 @@ export const prepareComponent = (components: ApiComponent[]): Set<ApiComponent> 
 /** Разбор всех комопнентов из всех сущностей, в коллеции */
 export const disassembleComponent = (entities: Set<ApiEntity>): Set<ApiComponent> => {
     try {
-        const set = new Set<ApiComponent>();
-        for (const entity of entities) {
-            for (const component of entity?.components || []) {
-                component.entityId = entity.id;
-                component.entityKey = entity.key;
-                set.add(component);
-            }
-        }
-        return set;
+        // const set = new Set<ApiComponent>();
+        // for (const entity of entities) {
+        //     for (const component of entity?.components || []) {
+        //         component.entityId = entity.id;
+        //         component.entityKey = entity.key;
+        //         set.add(component);
+        //     }
+        // }
+        // return set;
+        return new Set();
     } catch (e) {
         throw e;
     }
@@ -172,17 +175,18 @@ export const disassemble = (entities: ApiEntity[]): Set<ApiEntity> => {
 }
 
 const getAllChildren = (entities: ApiEntity[] = []): ApiEntity[] => {
-    const tempArr: ApiEntity[] = [];
-    for (const entity of entities) {
-        const { id, key, category, components, dateCreation, dateUpdate, 
-            name, note, parentId, parentKey, sampleId } = <ApiEntity>entity;
-        const { children } = (<ApiEntity>entity);
-        tempArr.push({ id, key, category, components, dateCreation, dateUpdate, 
-            name, note, parentId, parentKey, sampleId});
-        const disassembleChildren = getAllChildren(children);
-        tempArr.push(...<ApiEntity[]>disassembleChildren);
-    }
-    return <ApiEntity[]> tempArr;
+    // const tempArr: ApiEntity[] = [];
+    // for (const entity of entities) {
+    //     const { id, key, category, components, dateCreation, dateUpdate, 
+    //         name, note, parentId, parentKey, sampleId } = <ApiEntity>entity;
+    //     const { children } = (<ApiEntity>entity);
+    //     tempArr.push({ id, key, category, components, dateCreation, dateUpdate, 
+    //         name, note, parentId, parentKey, sampleId});
+    //     const disassembleChildren = getAllChildren(children);
+    //     tempArr.push(...<ApiEntity[]>disassembleChildren);
+    // }
+    // return <ApiEntity[]> tempArr;
+    return []
 }
 
 /** Запись компонентв в базу данных  */
@@ -194,7 +198,7 @@ const writeComponentToBatabase = async (disassembleComponents: Set<ApiComponent>
 
         const savable = await attachment.prepare(transaction, `
          INSERT INTO COMPONENTS (
-            ID_ENTITY, COMPONENT_NAME, COMPONENT_DESCRIPTION, PROPERTY_NAME, 
+            ENTITY_KEY, COMPONENT_NAME, COMPONENT_DESCRIPTION, PROPERTY_NAME, 
             PROPERTY_DESCRIPTION, PROPERTY_VALUE, PROPERTY_FORMULA, PROPERTY_TYPE,
             ATTRIBUTES, BINDING_TO_LIST, KEY, ENTITY_KEY, FORMULA_IMPORT )
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING ID;`);
@@ -206,29 +210,29 @@ const writeComponentToBatabase = async (disassembleComponents: Set<ApiComponent>
             WHERE C.ID = ?`);
    
 
-        for (const component of disassembleComponents) {
-            if (component.id) {
-                await editable.execute(transaction, 
-                    [
-                        component.entityId || null, component.componentName || null, component.componentDescription || null,
-                        component.propertyName || null, component.propertyDescription || null, String(component.propertyValue),
-                        component.propertyFormula || null, component.propertyType || null, component.attributes || null, component.bindingToList || false,
-                        component.key || null, component.entityKey || null, 
-                        component.formulaImport ? Buffer.alloc(component.formulaImport?.length || 0, component.formulaImport) : null,
-                        component.id
-                    ]);
-            }else{
-                const newEntry =  await savable.executeSingletonAsObject<{ID: number}>(transaction,
-                    [
-                        component.entityId || null, component.componentName || null, component.componentDescription || null,
-                        component.propertyName || null, component.propertyDescription || null, String(component.propertyValue),
-                        component.propertyFormula || null, component.propertyType || null, component.attributes || null, component.bindingToList || false,
-                        component.key || null, component.entityKey || null, 
-                        component.formulaImport ? Buffer.alloc(component.formulaImport?.length || 0, component.formulaImport) : null,
-                    ]);
-                component.id = newEntry.ID;
-            }
-        }
+        // for (const component of disassembleComponents) {
+        //     if (component.id) {
+        //         await editable.execute(transaction, 
+        //             [
+        //                 component.entityId || null, component.componentName || null, component.componentDescription || null,
+        //                 component.propertyName || null, component.propertyDescription || null, String(component.propertyValue),
+        //                 component.propertyFormula || null, component.propertyType || null, component.attributes || null, component.bindingToList || false,
+        //                 component.key || null, component.entityKey || null, 
+        //                 component.formulaImport ? Buffer.alloc(component.formulaImport?.length || 0, component.formulaImport) : null,
+        //                 component.id
+        //             ]);
+        //     }else{
+        //         const newEntry =  await savable.executeSingletonAsObject<{ID: number}>(transaction,
+        //             [
+        //                 component.entityId || null, component.componentName || null, component.componentDescription || null,
+        //                 component.propertyName || null, component.propertyDescription || null, String(component.propertyValue),
+        //                 component.propertyFormula || null, component.propertyType || null, component.attributes || null, component.bindingToList || false,
+        //                 component.key || null, component.entityKey || null, 
+        //                 component.formulaImport ? Buffer.alloc(component.formulaImport?.length || 0, component.formulaImport) : null,
+        //             ]);
+        //         component.id = newEntry.ID;
+        //     }
+        // }
         await savable.dispose();
         await editable.dispose();
         await transaction.commit();
@@ -252,7 +256,7 @@ const writeEntityToBatabase = async (disassembleEntity: Set<ApiEntity>) => {
                 RETURNING ID;`);
         const editable = await attachment.prepare(transaction, `
             UPDATE ENTITIES E SET E.ID_PARENT = ?,
-                    E.ID_SAMPLE = ?,
+                    E.SAMPLE_KEY = ?,
                     E.CATEGORY = ?,
                     E.NAME = ?,
                     E.NOTE = ?,
@@ -261,19 +265,19 @@ const writeEntityToBatabase = async (disassembleEntity: Set<ApiEntity>) => {
                     E.DATE_UPDATE = CURRENT_TIMESTAMP
                 WHERE E.ID = ?`);
         
-        for (const entity of disassembleEntity) {
-            const signature = entity;
-            const father = findFather(entity.parentKey, disassembleEntity);
-            if (father && father.id) signature.parentId = father.id;
-            if (signature.id) {
-                await editable.execute(transaction, 
-                    [signature.parentId || null, signature.sampleId || null, signature.category || null, signature.name, signature.note || null, signature.key || null, signature.parentKey || null, signature.id])
-            }else{
-                const newEntry = await savable.executeSingletonAsObject<{ID: number}>(transaction, 
-                    [signature.parentId || null, signature.sampleId || null, signature.category || null, signature.name, signature.note || null, signature.key || null, signature.parentKey || null])
-                signature.id = newEntry.ID;
-            }
-        }
+        // for (const entity of disassembleEntity) {
+        //     const signature = entity;
+        //     const father = findFather(entity.parentKey, disassembleEntity);
+        //     if (father && father.id) signature.parentId = father.id;
+        //     if (signature.id) {
+        //         await editable.execute(transaction, 
+        //             [signature.parentId || null, signature.sampleId || null, signature.category || null, signature.name, signature.note || null, signature.key || null, signature.parentKey || null, signature.id])
+        //     }else{
+        //         const newEntry = await savable.executeSingletonAsObject<{ID: number}>(transaction, 
+        //             [signature.parentId || null, signature.sampleId || null, signature.category || null, signature.name, signature.note || null, signature.key || null, signature.parentKey || null])
+        //         signature.id = newEntry.ID;
+        //     }
+        // }
         await savable.dispose();
         await editable.dispose();
         await transaction.commit();
@@ -345,7 +349,6 @@ const convertComponentsDbToApi = (data: ComponentDb): ApiComponent => {
     return {
         id: data.ID,
         key: data.KEY,
-        entityId: data.ID_ENTITY || undefined,
         entityKey: data.ENTITY_KEY || undefined,
         componentName: data.COMPONENT_NAME,
         componentDescription: data.COMPONENT_DESCRIPTION,
@@ -356,7 +359,8 @@ const convertComponentsDbToApi = (data: ComponentDb): ApiComponent => {
         propertyType: (data.PROPERTY_TYPE as any),
         attributes: data.ATTRIBUTES || undefined,
         bindingToList: data.BINDING_TO_LIST || false,
-        formulaImport: data.FORMULA_IMPORT || undefined,
+        index: 0,
+        indicators:{}
     }
 }
 
@@ -365,15 +369,13 @@ const convertEntityDbToApi = (data: EntityDb, comps: ComponentDb[]): ApiEntity =
     return {
         id: data.ID,
         category: data.CATEGORY || undefined,
-        parentId: data.ID_PARENT || undefined,
-        sampleId: data.ID_SAMPLE || undefined,
-        name: data.NAME || undefined,
+        name: data.NAME || "",
         note: data.NOTE || undefined,
-        dateCreation: data.DATE_CREATION,
-        dateUpdate: data.DATE_UPDATE,
         key: data.KEY,
         parentKey: data.PARENT_KEY||undefined,
         components: components,
+        index: 0,
+        indicators: {},
     }
 }
 

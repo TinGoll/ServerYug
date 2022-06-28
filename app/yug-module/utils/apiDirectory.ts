@@ -1,10 +1,10 @@
-import { SocketMethods } from "../types/socket-message-types";
+import { OrderActions, SocketMethods } from "../types/socket-message-types";
 
 interface Api {
     name: string;
     description: string;
     method: SocketMethods;
-    action: string;
+    action: OrderActions;
     data: string;
 }
 
@@ -15,7 +15,7 @@ export const apiDirectory = (): Api[] => {
             
             description: "Создание нового заказа по ключу шаблона (и не только, но это другая история)",
             method: "order",
-            action: "/create-order",
+            action: "/create-room",
             data: JSON.stringify({
                 entityKey: 'Ключ сущности (шаблона), по которой будет создан заказ'
             }, null, 2)
@@ -26,14 +26,20 @@ export const apiDirectory = (): Api[] => {
             method: "order",
             action: "/get-all-orders",
             data: JSON.stringify({
-                filter: 'необязательный параметр, может содержат name?: string, category?: string и другие фильтры'
+                filter: `необязательный параметр, может содержат:
+                 filter?: {
+                    categories?: string[];
+                    names?: string[];
+                    notes?: string[];
+                    componentNames?: string[];
+                };`
             }, null, 2)
         },
         {
             name: "Открыть заказ",
             description: "Открытие, ранее созданного заказа, по ключу, который можно получить, по запросу /get-all-orders",
             method: "order",
-            action: "/open-order",
+            action: "/open-room",
             data: JSON.stringify({
                 entityKey: 'ключ заказа'
             }, null, 2)
@@ -42,7 +48,7 @@ export const apiDirectory = (): Api[] => {
             name: "Получить данные заказа",
             description: "Стандартный ответ, на какие либо действия или измнения, ответ отправляет сервер.",
             method: "order",
-            action: "/get-order-data",
+            action: "/get-room-data",
             data: JSON.stringify({
                 order: 'Данные заказа, как правило, это шапка и ее дочерние сущности. Но в случае изменения, будут приходить только измененные сущности.'
             }, null, 2)
@@ -60,7 +66,7 @@ export const apiDirectory = (): Api[] => {
             name: "Получить историю",
             description: "Стандартный ответ, отправляется сервером, при дополнении истории в комнате",
             method: "order",
-            action: "/get-order-history",
+            action: "/get-room-history",
             data: JSON.stringify({
                 history: 'Массив истории, состоящий из имени пользователя, экшена, ключа комнаты и времении'
             }, null, 2)
@@ -69,18 +75,19 @@ export const apiDirectory = (): Api[] => {
             name: "Закрыть заказ",
             description: "Закрытие заказа (для отправляющего), точнее выход из комнаты. Если в комнате кто то остался, заказ комната будет висть в памяти. Но Обновления этому пользователю поступать больше не будут.",
             method: "order",
-            action: "/close-order",
+            action: "/close-room",
             data: JSON.stringify({
-                entityKey: 'ключ заказа, который надо закрыть'
+                roomKey: 'ключ заказа, который надо закрыть'
             }, null, 2)
         },
         {
             name: "Добавить элемент",
             description: "Добавление элемента в открытый заказ. Если заказ закрыт, будет возвращена ошибка.",
             method: "order",
-            action: "/add-order-element",
+            action: "/add-room-element",
             data: JSON.stringify({
-                entityKey: "Ключ открытого заказа ", 
+                roomKey: "Ключ комнаты",
+                entityKey: "Ключ сущности, в котоорую необходимо добавить", 
                 addedKey: "Ключ шаблона сущности, которую надо добавить."
             }, null, 2)
         },
@@ -88,9 +95,9 @@ export const apiDirectory = (): Api[] => {
             name: "Удалить элемент",
             description: "Удаление элемента из открытого заказа. Если заказ закрыт, будет возвращена ошибка.",
             method: "order",
-            action: "/delete-order-element",
+            action: "/delete-room-element",
             data: JSON.stringify({
-                entityKey: "Ключ открытого заказа ",
+                roomKey: "Ключ комнаты",
                 deletedKey: "Ключ добавленной сущности, которую необходимо удалить."
             }, null, 2)
         },
@@ -98,12 +105,12 @@ export const apiDirectory = (): Api[] => {
             name: "Изменить элемент",
             description: "Изменение свойств компоеннтов, в сущностях (в том числе и открытой шапке)",
             method: "order",
-            action: "/edit-order-element",
+            action: "/edit-room-element",
             data: JSON.stringify({
-                entityKey: "ключ заказа", 
+                roomKey: "Ключ комнаты",
                 editedKey: "ключ сущности", 
                 propertyKey: "ключ компонента", 
-                value: "значение"
+                dto: "Объект определения компонента."
             }, null, 2)
         },
 
@@ -114,9 +121,9 @@ export const apiDirectory = (): Api[] => {
             method: "order",
             action: "/add-property-to-element",
             data: JSON.stringify({
-                entityKey: "ключ заказа",
-                elementKey: "ключ сущности",
-                apiComponent: "Компонент, который надо добавить",
+                roomKey: "Ключ комнаты",
+                entityKey: "ключ сущности",
+                propertyKeys: "Массив коючей компонентов",
             }, null, 2)
         },
         {
@@ -125,9 +132,39 @@ export const apiDirectory = (): Api[] => {
             method: "order",
             action: "/remove-property-from-element",
             data: JSON.stringify({
-                entityKey: "ключ заказа",
-                elementKey: "ключ сущности",
+                roomKey: "Ключ комнаты",
+                entityKey: "ключ сущности",
                 propertyKey: "ключ компонента",
+            }, null, 2)
+        },
+        {
+            name: "Создать сущность - шаблон.",
+            description: "Создание новой номенклатуры",
+            method: "order",
+            action: "/create-sample-entity",
+            data: JSON.stringify({
+                entotyDto: "dto сущности",
+                components: "Необязательно. Комплект комопнентов ApiComponent[]. Массив"
+            }, null, 2)
+        },
+        {
+            name: "Создать компонент - шаблон.",
+            description: "Создание новой номенклатуры компонента",
+            method: "order",
+            action: "/create-sample-component",
+            data: JSON.stringify({
+                componentDto: 'dto компонента',
+                components: 'Необязательно. Набор свойств ApiComponent[]. Массив'
+            }, null, 2)
+        },
+        {
+            name: "Изменить компонент - шаблон.",
+            description: "Изменение компонента",
+            method: "order",
+            action: "/edit-sample-components",
+            data: JSON.stringify({
+                componentKey: "Ключ свойства компонента",
+                componentDto: "Dto комопнента с изменениями.",
             }, null, 2)
         },
     ]

@@ -1,4 +1,4 @@
-
+import { WebSocket } from "ws";
 import ApiError from "../../exceptions/ApiError";
 import connectionAction from "../actions/connetc-actions";
 import deleteActions from "../actions/delete-actions";
@@ -69,20 +69,16 @@ export class SocketService {
     }
     /** Проверка серцебиения клиента. */
     heartbeat(service: SocketService) {
-        return function (this: YugWebsocket) {
-            if (!this.data) {
-                this.terminate();
-                return;
-            }
-            this.data.isAlive = true;
+        return function (this: YugWebsocket | WebSocket) {
+            (<YugWebsocket>this).data.isAlive = true;
         }
     }
     /** Отлавливает события, когда клиент, отключился */
     closeHandler(service: SocketService)  {
-        return function (this: YugWebsocket, code: number, reason: Buffer) {
+        return function (this: YugWebsocket | WebSocket, code: number, reason: Buffer) {
            service.broadcastsystem.broadcast( {
                method: "close",
-               message: `${this.data?.user?.getUserName() || this.data?.key} отавлился.`,
+               message: `${(<YugWebsocket>this).data?.user?.getUserName() || (<YugWebsocket>this).data.key} отавлился.`,
                reason: service.getCloseEventCode(code)
            });
            this.terminate();
@@ -90,7 +86,7 @@ export class SocketService {
     }
     /** Оталавливает события, когда клиент возвратил ошибку */
     errorHandler (service: SocketService) {
-        return function (this: YugWebsocket, err: Error) {
+        return function (this: YugWebsocket | WebSocket, err: Error) {
             try {
                 console.log('SocketService ERROR', err.message);
             } catch (e) {
@@ -100,46 +96,54 @@ export class SocketService {
     }
     /** Отлавливает событие, когда клиент отправил пакет. */
     messageHandler (service: SocketService) {
-        return function (this: YugWebsocket, message: string, isBinary: boolean) {
+        return function (this: YugWebsocket | WebSocket, message: string, isBinary: boolean) {
             try {
                 /*********************************************************************************************************************************** */
                 //                                      Предварительная обработка пакета.
                 let msg: SocketMessage;
                 /** Обработка сообщения */
                 try { msg = JSON.parse(message) } catch (e) { 
-                    service.sender(this, errorMessage.get("incorrect message", [message]));
+                    service.sender((<YugWebsocket>this), errorMessage.get("incorrect message", [message]));
                     return;
                 }
                 /** Если в пакете отсутвует поле метод */
-                if (!msg.method) return service.sender(this, errorMessage.get("incorrect message", ['Пакет должен содержать method', message]));
+                if (!msg.method) return service.sender((<YugWebsocket>this), errorMessage.get("incorrect message", ['Пакет должен содержать method', message]));
                 /** Если пользователь не авторизован и метод доступа не конект. */
-                if (!this.data?.isAuth && msg.method !== 'connection') return service.sender(this, errorMessage.get("not registered"));
+                if (!(<YugWebsocket>this).data.isAuth && msg.method !== 'connection') return service.sender((<YugWebsocket>this), errorMessage.get("not registered"));
+                (<YugWebsocket>this).headers = msg.headers || {};
 
                 /*********************************************************************************************************************************** */
+                // console.log('*****************************************************');
+                // console.log('******************* ORGIN MSG ***********************');
+                // console.log(JSON.stringify(msg, null, 2));
+                
+                // console.log('*****************************************************');
+                // console.log('*****************************************************');
+                
                 switch (msg.method) {
                     case "connection":
-                        connectionAction(this, service, <ConnectionSocketMessage>msg);
+                        connectionAction((<YugWebsocket>this), service, <ConnectionSocketMessage>msg);
                         break;
                     case 'post':
-                        postActions(this, service, <PostSocketMessage>msg);
+                        postActions((<YugWebsocket>this), service, <PostSocketMessage>msg);
                         break;
                     case 'put':
-                        putActions(this, service, <PutSocketMessage>msg);
+                        putActions((<YugWebsocket>this), service, <PutSocketMessage>msg);
                         break;
                     case 'get':
-                        getActions(this, service, <GetSocketMessage>msg);
+                        getActions((<YugWebsocket>this), service, <GetSocketMessage>msg);
                         break; 
                     case 'order':
-                        orderActions(this, service, <OrderSocketMessage>msg);
+                        orderActions((<YugWebsocket>this), service, <OrderSocketMessage>msg);
                         break; 
                     case 'delete':
-                        deleteActions(this, service, <DeleteSocketMessage>msg);
+                        deleteActions((<YugWebsocket>this), service, <DeleteSocketMessage>msg);
                         break;    
                     default:
                         break;
                 }
             } catch (e) {
-                service.sendError(this, e);
+                service.sendError((<YugWebsocket>this), e);
             }
         }
     }

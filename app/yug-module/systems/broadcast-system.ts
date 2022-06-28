@@ -20,7 +20,7 @@ export class BroadcastSystem {
      * @param callback Функция, в которой формируется сообщение.
      * @param condition Функция, должна вернуть bool значение, если true, сообщение будет отправлено.
      */
-    extendedMailing(callback: (ws: YugWebsocket) => Promise< SocketMessage | undefined>, condition?: (ws: YugWebsocket) => boolean) {
+    extendedMailing(callback: (ws: YugWebsocket) => Promise< SocketMessage>, condition?: (ws: YugWebsocket) => Promise<boolean>) {
         try {
             const clients = aWss.clients as Set<YugWebsocket>;
             clients.forEach(async (client) => {
@@ -28,7 +28,7 @@ export class BroadcastSystem {
                 if (msg) {
                     if (typeof callback === 'function') {
                         if (condition && typeof condition === 'function') {
-                            if (condition(client)) client.send(JSON.stringify(msg));
+                            if (await condition(client)) client.send(JSON.stringify(msg));
                         }else{
                             client.send(JSON.stringify(msg));
                         }
@@ -52,7 +52,7 @@ export class BroadcastSystem {
             const room = roomFilter.roomKey;
             clients.forEach(client => {
                 if (room) {
-                    if (client.data?.roomData.roomKey === room) {
+                    if (client.data.rooms.find(r => r === room)) {
                         client.send(message); 
                     }
                 }else{
