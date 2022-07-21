@@ -27,7 +27,7 @@ export interface AddOrderElementData {
 
 export interface DeleteOrderElementData {
   roomKey: string;
-  deletedKey: string;
+  deletedKeys: string[];
 }
 
 export interface EditOrderElementData {
@@ -63,7 +63,7 @@ export interface ChangeEntityComponentToKey {
 export interface RemovePropertyFromElement {
   roomKey: string;
   entityKey: string;
-  propertyKey: string;
+  propertyKeys: string[]
 }
 
 export interface AddPropertyToElement {
@@ -75,12 +75,18 @@ export interface AddPropertyToElement {
 export interface CreateSampleEntityOrderData {
   entityDto: EntityDto;
   components?: ApiComponent[];
+  cloneKey?: string;
 }
 
 export interface CreateSampleComponentOrderData {
   componentDto: ComponentDto;
   components?: ApiComponent[];
 }
+
+export interface DeleteSampleComponentOrderData {
+  componentKeys: string[];
+}
+
 
 export interface EditSampleComponent {
   componentKey: string;

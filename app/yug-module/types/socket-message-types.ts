@@ -125,7 +125,9 @@ const orderActionTypes = [
     '/create-sample-component',
     '/sample-components',
     '/edit-sample-components',
-    '/formula-preparation-data'
+    '/formula-preparation-data',
+    '/tag-actualization',
+    '/delete-sample-component'
 ] as const
 /****************************************************** */
 

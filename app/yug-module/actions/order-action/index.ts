@@ -10,6 +10,7 @@ import {
   createSampleComponent,
   createSampleEntity,
   deleteOrderElement,
+  deleteSampleComponent,
   editOrderElement,
   editSampleComponents,
   getAllOrders,
@@ -20,6 +21,7 @@ import {
   getSampleNames,
   openOrder,
   removePropertyFromElement,
+  tagActualization,
 } from "./orderController";
 
 
@@ -63,6 +65,9 @@ const orderActions = async (ws: YugWebsocket, service: SocketService, msg: Order
             case "/create-sample-component": // Создание шаблона
                 createSampleComponent({ ws, service, msg })
                 break;
+            case "/delete-sample-component": // Создание шаблона
+                deleteSampleComponent({ ws, service, msg })
+                break;
 
             case "/get-sample-names": // Получение списка заказов (верхний уровень , с компонентами)
                 getSampleNames({ ws, service, msg });
@@ -87,6 +92,9 @@ const orderActions = async (ws: YugWebsocket, service: SocketService, msg: Order
                 // Метод для списка АПИ.
             case "/get-api-directory": // получение списка api.
                 getApiDirectory({ ws, service, msg });
+                break;
+            case "/tag-actualization": // получение списка api.
+                tagActualization({ ws, service, msg });
                 break;
             default:
                 break;

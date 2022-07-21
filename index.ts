@@ -68,7 +68,7 @@ const rContrl = new RoomController();
 // Обработка ошибок.
 app.use(errorMiddleware);
 
-app.listen(config.port, async () => {
+const server = app.listen(config.port, async () => {
   try {
     console.log("Обновляем системы...");
     const planSystem = new OrderPlanSystem();
@@ -81,3 +81,4 @@ app.listen(config.port, async () => {
   }
   console.log(`Сервер запущен на порту ${config.port}`);
 });
+

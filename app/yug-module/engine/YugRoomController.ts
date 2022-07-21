@@ -20,7 +20,7 @@ export default class YugRoomController extends RoomControllerHeart {
 
     async getEntitySamples (): Promise<ApiEntity[]> {
         const samples = [...this.engine.values()].filter(e => {
-            if (!e.options.parentKey && !e.options.sampleKey) {
+            if (e && !e.options?.parentKey && !e.options?.sampleKey) {
                 return true;
             }else{
                 return false;

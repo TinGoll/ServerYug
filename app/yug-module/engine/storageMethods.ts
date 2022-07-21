@@ -266,6 +266,10 @@ export const deleteEntities = async (keys: string[]): Promise<string[]> => {
     const db = new FirebirdNativeAdapter();
     const attachment = await db.connect();
     const transaction = await attachment.startTransaction();
+    
+
+    console.log('\x1b[42m%s\x1b[0m', 'deleteEntities', keys);
+    
     try {
         const prepare = await attachment.prepare(transaction, 
             `DELETE FROM ENTITIES E WHERE E."KEY" IN (${keys.map(k => "?").join(",")})`);
@@ -278,7 +282,11 @@ export const deleteEntities = async (keys: string[]): Promise<string[]> => {
         throw e;
     }
 }
-
+/**
+ * Удаление компонентов из базы даных
+ * @param keys массив ключей
+ * @returns массив удаленных ключей.
+ */
 export const deleteComponents = async (keys: string[]): Promise<string[]> => {
     if (!keys.length) return keys;
     const db = new FirebirdNativeAdapter();
@@ -330,7 +338,6 @@ export const updateEntities = async (entities: ApiEntity[]): Promise<ApiEntity[]
 
 export const updateComponents = async (components: ApiComponent[], caller: string): Promise<ApiComponent[]> => {
     console.log('\x1b[42m%s\x1b[0m', caller, 'updateComponents', components);
-
     if (!components.length){
         return components;
     }
