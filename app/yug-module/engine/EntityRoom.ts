@@ -406,7 +406,9 @@ export default class EntityRoom extends Room<string, YugWebsocket> {
     try {
       const data: ApiEntity[] = [];
       if (!this.entity) throw new Error("Комната не содержит сущность.");
+      
       await this.entity.recalculation();
+
       const buildData = await this.entity.fullBuild();
       data.push(...buildData);
       // if (type === "all data") {
