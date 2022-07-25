@@ -27,28 +27,31 @@ export default class EntityRoom extends Room<string, YugWebsocket> {
     originalMessage: OrderSocketMessage,
     ...args: any[]
   ): this {
+    // console.log(
+    //   "subscriber",
+    //   subscriber.data.user,
+    //   "HAS",
+    //   this.subscribers.has(subscriber.data.key)
+    // );
 
     if (!this.subscribers.has(subscriber.data.key)) {
       subscriber.data.rooms = [...subscriber.data.rooms, this.key];
       this.subscribers.set(subscriber.data.key, subscriber);
-      // отправка текущего состояния сущности заказа
-      const promiseData = this.build<ApiEntity[]>("all data");
-      promiseData
-        .then((data) => {
-          if (data.length) {
-            this.sendToOneSubscriber(
-              subscriber,
-              data,
-              originalMessage,
-              this.key
-            );
-          }
-        })
-        .catch((err) => {
-            service.sendError(subscriber, <Error>err);
-            console.log("\x1b[31m%s\x1b[0m", (<Error>err).message);
-        });
     }
+    // отправка текущего состояния сущности заказа
+    const promiseData = this.build<ApiEntity[]>("all data");
+    console.log("promiseData unpacked", promiseData);
+    promiseData
+      .then((data) => {
+        console.log("promiseData", data);
+        if (data.length) {
+          this.sendToOneSubscriber(subscriber, data, originalMessage, this.key);
+        }
+      })
+      .catch((err) => {
+        service.sendError(subscriber, <Error>err);
+        console.log("\x1b[31m%s\x1b[0m", (<Error>err).message);
+      });
     return this;
   }
 
@@ -195,24 +198,24 @@ export default class EntityRoom extends Room<string, YugWebsocket> {
     ...args: any[]
   ) {
     try {
-        if (this._entity) {
-            const entity = await this.entity?.getEntityToKey(entityKey);
-            if (!entity)
-              throw new Error("Сущности с таким ключом, нет в данной команте.");
+      if (this._entity) {
+        const entity = await this.entity?.getEntityToKey(entityKey);
+        if (!entity)
+          throw new Error("Сущности с таким ключом, нет в данной команте.");
 
-            const deletedKeys = await entity.removeComponentsToKeys(keys);
-             const msg: OrderSocketMessage = {
-               method: "order",
-               action: "/remove-property-from-element",
-               headers: originalMessage.headers,
-               data: {
-                 keys: deletedKeys,
-               },
-             };
-             service.sender<OrderSocketMessage>(subscriber, msg);
-        } else {
-          throw new Error("Комната пуста, сущность не открыта.");
-        }
+        const deletedKeys = await entity.removeComponentsToKeys(keys);
+        const msg: OrderSocketMessage = {
+          method: "order",
+          action: "/remove-property-from-element",
+          headers: originalMessage.headers,
+          data: {
+            keys: deletedKeys,
+          },
+        };
+        service.sender<OrderSocketMessage>(subscriber, msg);
+      } else {
+        throw new Error("Комната пуста, сущность не открыта.");
+      }
     } catch (e) {
       service.sendError(subscriber, e);
       return [];
@@ -256,9 +259,12 @@ export default class EntityRoom extends Room<string, YugWebsocket> {
         if (deletedKeys.length) {
           const allKeys = await this.engine.deleteEntityShell(deletedKeys);
 
-          const keys = allKeys.reduce<string[]>((acc, item) => [...acc, ...item], []);
+          const keys = allKeys.reduce<string[]>(
+            (acc, item) => [...acc, ...item],
+            []
+          );
           console.log("allKeys", keys);
-        
+
           const msg: OrderSocketMessage = {
             method: "order",
             action: "/delete-room-element",
@@ -337,6 +343,7 @@ export default class EntityRoom extends Room<string, YugWebsocket> {
         throw new Error("Свойства с таким ключом, нет в данной сущности.");
       const component = entity.getComponent(cmp.componentName);
       if (!component) throw new Error("Комопнент не найден в данной сущности.");
+
       if (dto.componentName && dto.componentName !== component.name) {
         component.rename(dto.componentName);
       }
@@ -346,7 +353,10 @@ export default class EntityRoom extends Room<string, YugWebsocket> {
       ) {
         component.setDescription(dto.componentName);
       }
+
       component.setPropertiesBykey(propertyKey, dto);
+
+      console.log("editEntityToDto", [...component]);
 
       entity.setComponent(component);
 
@@ -359,9 +369,7 @@ export default class EntityRoom extends Room<string, YugWebsocket> {
             components: [
               ...entity
                 .getShell()
-                .options.components.filter(
-                  (c) => c.indicators.is_not_sent_notification
-                ),
+                .options.components.filter((c) => c.indicators.is_changeable),
             ],
           },
         ],
@@ -398,6 +406,7 @@ export default class EntityRoom extends Room<string, YugWebsocket> {
     try {
       const data: ApiEntity[] = [];
       if (!this.entity) throw new Error("Комната не содержит сущность.");
+      await this.entity.recalculation();
       const buildData = await this.entity.fullBuild();
       data.push(...buildData);
       // if (type === "all data") {
@@ -450,6 +459,8 @@ export default class EntityRoom extends Room<string, YugWebsocket> {
     roomKey: string,
     ...args: any[]
   ): void {
+    console.log("notifyOne", data);
+
     notifyOne(this.engine, subscriber, data, originalMessage, roomKey, ...args);
   }
 

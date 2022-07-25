@@ -407,6 +407,7 @@ export const openOrder = async ({
             resolve(null);
           } else {
             console.log("subscribe", ws.data.user?.getUserName());
+            
             room?.subscribe(ws, service, msg); // Подписка первого пользователя на комнату.
             resolve(<EntityRoom>room);
           }
@@ -585,6 +586,8 @@ export const editOrderElement = async ({
         }
         // Изменен метод присвоения значнеия компоненту.
         //room.editEntityToKey(editedKey, propertyKey, value, ws);
+
+        console.log("editOrderElement DTO", dto);
         room.editEntityToDto(editedKey, propertyKey, dto, ws, service, msg);
       },
       getRoomClass

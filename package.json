@@ -26,7 +26,7 @@
     "node-firebird": "^0.9.9",
     "node-firebird-driver-native": "^2.4.0",
     "p-queue": "^6.6.2",
-    "yug-entity-system-async": "^2.0.90"
+    "yug-entity-system-async": "^2.0.93"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.2",
