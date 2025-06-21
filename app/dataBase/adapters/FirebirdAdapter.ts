@@ -1,9 +1,9 @@
 import { createMassivYugDb, Firebird } from "../../firebird/Firebird";
 import { FirebirdDatabaseOperation } from "../../firebird/types";
-import { ISQLAdapter } from "../../yug-module/data-base/adapters/ISQLAdapter";
 
 
-export class FirebirdYugAdapter implements ISQLAdapter {
+
+export class FirebirdYugAdapter {
     private static instance: FirebirdYugAdapter;
     private db: Firebird | null = null;
     

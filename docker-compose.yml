@@ -1,0 +1,18 @@
+version: '3.9'
+
+services:
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: myug-server-itm
+    restart: unless-stopped
+    ports:
+      - "3131:3131"
+    environment:
+      - NODE_ENV=production
+    volumes:
+      - ./public:/usr/src/app/public:ro
+      - ./app/assets:/app/assets:ro
+      - /mnt/2T/Archive/Work/Заказы/:/mnt/2T/Archive/Work/Заказы/
+    command: node dist/index.js

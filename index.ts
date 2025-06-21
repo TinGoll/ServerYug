@@ -9,15 +9,9 @@ import serviceRouter from "./app/routes/service-router";
 
 import { OrderPlanSystem } from "./app/systems/order-plans-system";
 import ExtraDataSystem from "./app/systems/extra-data-system";
-//const app: Application = express();
-import expressWs from 'express-ws';
-import yugSocketController from "./app/yug-module/controllers/yug-socket-controller";
-import { heartbeat } from "./app/yug-module/utils/heartbeat-clients";
-import RoomController from "./app/yug-module/room-system/RoomController";
 
+export const app = express();
 
-export const { app, getWss, applyTo } = expressWs(express());
-export const aWss = getWss();
 
 /******************************************************************************************* */
 config.express(app);
@@ -49,26 +43,10 @@ config.routesUsers(app, "/api");
 config.routesExtraData(app, "/api");
 config.routesOrders(app);
 
-
-
-/** Socket соедниниен */
-app.ws('/api/connection', yugSocketController.connect);
-heartbeat(aWss); // Проверка сердцебияения.
-
-//testSocket(aWss); //Тестовый таймер
-/************************************** */
-
-/** Движок */
-// Запуск перенесе в класс SocketController
-//engine.start();
-
-
-const rContrl = new RoomController();
-
 // Обработка ошибок.
 app.use(errorMiddleware);
 
-const server = app.listen(config.port, async () => {
+app.listen(config.port, async () => {
   try {
     console.log("Обновляем системы...");
     const planSystem = new OrderPlanSystem();
